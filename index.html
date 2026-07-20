@@ -104,6 +104,8 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
 .legend i{width:13px;height:13px;border-radius:4px;display:inline-block}
 
 /* ── 차트 ── */
+.m2grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.m2grid{grid-template-columns:1fr}}
 .chart-box{position:relative;height:340px;margin-top:8px}
 .chart-box.sm{height:280px}
 @media(max-width:640px){.chart-box{height:280px}.chart-box.sm{height:240px}}
@@ -226,7 +228,7 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
   <div id="m2SejCard"></div>
   <div class="stat-grid" id="metricStats"></div>
   <div class="card">
-    <h2>지역별 상세 <span class="tip">회색 = 자동계산 · 흰 칸 = 입력 가능(8월부터, 관리자)</span></h2>
+    <h2>지역별 상세 <span class="tip">관리자: 1~7월은 확정값 직접수정 가능 · 8월부터는 당월만 입력하면 누적 자동계산</span></h2>
     <div class="tbl-wrap"><table id="m2Tbl">
       <thead><tr>
         <th>지역</th><th>전년말재적</th><th>현도재적</th>
@@ -237,11 +239,11 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
       <tbody></tbody>
     </table></div>
   </div>
-  <div class="card">
-    <h2>지표 그래프 <span class="tip">누적 기준 · 막대 클릭 → 지역 상세</span>
-      <span style="margin-left:auto" class="seg" id="metricSeg"></span>
-    </h2>
-    <div class="chart-box"><canvas id="metricChart"></canvas></div>
+  <div class="m2grid">
+    <div class="card" style="margin-bottom:0"><h2 id="m2t_regRate">센터등록률</h2><div class="chart-box sm"><canvas id="m2c_regRate"></canvas></div></div>
+    <div class="card" style="margin-bottom:0"><h2 id="m2t_finRate">센터종강률</h2><div class="chart-box sm"><canvas id="m2c_finRate"></canvas></div></div>
+    <div class="card" style="margin-bottom:0"><h2 id="m2t_enrRate">입교율</h2><div class="chart-box sm"><canvas id="m2c_enrRate"></canvas></div></div>
+    <div class="card" style="margin-bottom:0"><h2 id="m2t_attRate">출석률</h2><div class="chart-box sm"><canvas id="m2c_attRate"></canvas></div></div>
   </div>
 </section>
 
@@ -531,7 +533,6 @@ function init(){
   calY = now.getFullYear(); calM = now.getMonth();
   document.getElementById('mMonth').value = now.toISOString().slice(0,7);
   buildCatUI();
-  buildMetricSeg();
   initStore();
 }
 function lastSunday(){
@@ -656,17 +657,22 @@ function m2Entry(m,r){
   const e = ((S.metrics.entries||{})[m]||{})[r]||{};
   return {reg:+e.reg||0, freg:+e.freg||0, fin:+e.fin||0, enr:+e.enr||0, att:+e.att||0, cur:e.cur!=null?+e.cur:null};
 }
+const M2_FKEYS = ['reg','regc','freg','fregc','fin','finc','enr','enrc','att'];
 function m2Data(m, r){
   const d = {prev_total:M_PREV[r], cur_total:M_CUR[r], reg_total:0,reg_cum:0,fin_reg_total:0,fin_reg_cum:0,fin_total:0,fin_cum:0,enroll_total:0,enroll_cum:0,attend:0};
   if(m<=M_FIXED){
-    const raw = (M_SEED[m]||{})[r];
-    if(raw){ d.reg_total=raw[0];d.reg_cum=raw[1];d.fin_reg_total=raw[2];d.fin_reg_cum=raw[3];
-      d.fin_total=raw[4];d.fin_cum=raw[5];d.enroll_total=raw[6];d.enroll_cum=raw[7];d.attend=raw[8]; }
+    const raw = ((M_SEED[m]||{})[r] || [0,0,0,0,0,0,0,0,0]).slice();
+    const o = ((S.metrics.fixed||{})[m]||{})[r]||{};   // 관리자 수정값 반영
+    M2_FKEYS.forEach((k,i)=>{ if(o[k]!=null) raw[i]=+o[k]; });
+    d.reg_total=raw[0];d.reg_cum=raw[1];d.fin_reg_total=raw[2];d.fin_reg_cum=raw[3];
+    d.fin_total=raw[4];d.fin_cum=raw[5];d.enroll_total=raw[6];d.enroll_cum=raw[7];d.attend=raw[8];
+    if(o.cur!=null) d.cur_total=+o.cur;
     return d;
   }
-  // 8월~: 7월 누적을 기반으로 입력값 자동 합산
-  const base = (M_SEED[M_FIXED]||{})[r] || [0,0,0,0,0,0,0,0,0];
-  d.reg_cum=base[1]; d.fin_reg_cum=base[3]; d.fin_cum=base[5]; d.enroll_cum=base[7];
+  // 8월~: (수정 반영된) 7월 누적을 기준점으로 입력값 자동 합산
+  const b = m2Data(M_FIXED, r);
+  d.reg_cum=b.reg_cum; d.fin_reg_cum=b.fin_reg_cum; d.fin_cum=b.fin_cum; d.enroll_cum=b.enroll_cum;
+  d.cur_total=b.cur_total;
   for(let i=M_FIXED+1;i<=m;i++){
     const e = m2Entry(i,r);
     d.reg_cum+=e.reg; d.fin_reg_cum+=e.freg; d.fin_cum+=e.fin; d.enroll_cum+=e.enr;
@@ -674,6 +680,13 @@ function m2Data(m, r){
     if(i===m){ d.reg_total=e.reg; d.fin_reg_total=e.freg; d.fin_total=e.fin; d.enroll_total=e.enr; d.attend=e.att; }
   }
   return d;
+}
+function m2SetF(m,r,k,v){   // 1~7월 확정값 직접 수정
+  if(!S.metrics.fixed) S.metrics.fixed={};
+  if(!S.metrics.fixed[m]) S.metrics.fixed[m]={};
+  if(!S.metrics.fixed[m][r]) S.metrics.fixed[m][r]={};
+  S.metrics.fixed[m][r][k] = v===''?null:+v;
+  renderMetrics(); markDirty();
 }
 function m2Set(m,r,k,v){
   if(!S.metrics.entries) S.metrics.entries={};
@@ -691,17 +704,6 @@ function m2Rank(m){
     ranks[rt.k] = {}; sorted.forEach((x,i)=>ranks[rt.k][x.region]=i+1);
   });
   return {rows, ranks};
-}
-function buildMetricSeg(){
-  const seg = document.getElementById('metricSeg');
-  seg.innerHTML = `<button data-m="all" class="active">전체</button>` +
-    M2_RATES.map(rt=>`<button data-m="${rt.k}">${rt.name}</button>`).join('');
-  seg.addEventListener('click', e=>{
-    const b = e.target.closest('button'); if(!b) return;
-    metricSel = b.dataset.m;
-    seg.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));
-    drawMetricChart();
-  });
 }
 function renderMetrics(){
   // 월 탭
@@ -736,41 +738,58 @@ function renderMetrics(){
     <div class="stat" style="border-top-color:#7F77DD"><div class="lbl">평균 출석률</div><div class="val">${f1(attAvg)}<small>%</small></div></div>`;
 
   // 상세 표
-  const editable = m2Month>M_FIXED && role==='admin';
+  const isFix = m2Month<=M_FIXED;
+  const canEdit = role==='admin';
   const gray = 'background:#F4F6FA;color:#556;font-weight:600';
   document.querySelector('#m2Tbl tbody').innerHTML = rows.map(x=>{
     const d=x.d, r=x.region, e=m2Entry(m2Month,r);
-    const inp=(k,val)=>editable
-      ? `<input type="number" min="0" step="${k==='att'?'0.1':'1'}" value="${val||''}" placeholder="0" onchange="m2Set(${m2Month},'${r}','${k}',this.value)">`
-      : `${k==='att'?f1(val||0):(val||0).toLocaleString()}`;
+    // 확정월: 모든 값 직접수정(m2SetF) / 8월~: 당월만 입력(m2Set), 누적 자동
+    const inF=(k,val,step)=>canEdit
+      ? `<input type="number" min="0" step="${step||1}" value="${val}" onchange="m2SetF(${m2Month},'${r}','${k}',this.value)">`
+      : (step?f1(val):(+val||0).toLocaleString());
+    const inM=(k,val,step)=>canEdit
+      ? `<input type="number" min="0" step="${step||1}" value="${val||''}" placeholder="0" onchange="m2Set(${m2Month},'${r}','${k}',this.value)">`
+      : (step?f1(val||0):(+val||0).toLocaleString());
     return `<tr ${r==='세종'?'style="background:#FFFBEF"':''}>
       <td><b>${r==='세종'?'⭐ ':''}${r}</b></td>
       <td style="${gray}">${d.prev_total.toLocaleString()}</td>
-      <td>${editable?`<input type="number" min="0" value="${e.cur!=null?e.cur:d.cur_total}" onchange="m2Set(${m2Month},'${r}','cur',this.value)">`:d.cur_total.toLocaleString()}</td>
-      <td>${inp('reg', m2Month>M_FIXED?e.reg:d.reg_total)}</td>
-      <td style="${gray}">${d.reg_cum.toLocaleString()}</td>
+      <td>${isFix ? inF('cur', d.cur_total) : (canEdit?`<input type="number" min="0" value="${e.cur!=null?e.cur:d.cur_total}" onchange="m2Set(${m2Month},'${r}','cur',this.value)">`:d.cur_total.toLocaleString())}</td>
+      <td>${isFix ? inF('reg', d.reg_total) : inM('reg', e.reg)}</td>
+      <td>${isFix ? inF('regc', d.reg_cum) : `<span style="${gray};display:block;padding:4px 2px;border-radius:6px">${d.reg_cum.toLocaleString()}</span>`}</td>
       <td class="rate-cell" style="color:#378ADD">${f1(x.regRate)}%</td>
-      <td>${inp('freg', m2Month>M_FIXED?e.freg:d.fin_reg_total)}${m2Month<=M_FIXED?` <small style="color:#99a">(누적 ${d.fin_reg_cum.toLocaleString()})</small>`:''}</td>
-      <td>${inp('fin', m2Month>M_FIXED?e.fin:d.fin_total)}</td>
-      <td style="${gray}">${d.fin_cum.toLocaleString()}</td>
+      <td>${isFix ? inF('fregc', d.fin_reg_cum) : inM('freg', e.freg)}</td>
+      <td>${isFix ? inF('fin', d.fin_total) : inM('fin', e.fin)}</td>
+      <td>${isFix ? inF('finc', d.fin_cum) : `<span style="${gray};display:block;padding:4px 2px;border-radius:6px">${d.fin_cum.toLocaleString()}</span>`}</td>
       <td class="rate-cell" style="color:#1D9E75">${f1(x.finRate)}%</td>
-      <td>${inp('enr', m2Month>M_FIXED?e.enr:d.enroll_total)}</td>
-      <td style="${gray}">${d.enroll_cum.toLocaleString()}</td>
+      <td>${isFix ? inF('enr', d.enroll_total) : inM('enr', e.enr)}</td>
+      <td>${isFix ? inF('enrc', d.enroll_cum) : `<span style="${gray};display:block;padding:4px 2px;border-radius:6px">${d.enroll_cum.toLocaleString()}</span>`}</td>
       <td class="rate-cell" style="color:#BA7517">${f1(x.enrRate)}%</td>
-      <td>${inp('att', m2Month>M_FIXED?e.att:d.attend)}</td>
+      <td>${isFix ? inF('att', d.attend, '0.1') : inM('att', e.att, '0.1')}</td>
     </tr>`;
   }).join('');
-  drawMetricChart();
+    drawMetricChart();
 }
 function drawMetricChart(){
   const {rows} = m2Rank(m2Month);
-  const sel = metricSel==='all' ? M2_RATES : M2_RATES.filter(rt=>rt.k===metricSel);
-  mkChart('metricChart','bar',{labels:M_REGIONS,
-    datasets: sel.map(rt=>({label:rt.name, data:rows.map(x=>x[rt.k]), backgroundColor:rt.color, borderRadius:5}))},
-    {onClick:(e,els)=>{ if(!els.length) return; metricDrill(M_REGIONS[els[0].index]); },
-     scales:{y:{beginAtZero:true, ticks:{callback:v=>v+'%'}}},
-     plugins:{datalabels:{anchor:'end',align:'top',formatter:v=>v>0?f1(v):'',color:'#333',font:{size:9,weight:'700'}},
-       legend:{display:sel.length>1}}});
+  M2_RATES.forEach(rt=>{
+    const valid = rt.k==='attRate' ? rows.filter(x=>x[rt.k]>0) : rows;
+    const sorted = valid.slice().sort((a,b)=>b[rt.k]-a[rt.k]);
+    const avg = sorted.length ? sorted.reduce((s,x)=>s+x[rt.k],0)/sorted.length : 0;
+    const tEl = document.getElementById('m2t_'+rt.k);
+    if(tEl) tEl.innerHTML = `<span class="dot" style="width:9px;height:9px;border-radius:50%;background:${rt.color};display:inline-block"></span> ${rt.name}
+      <span class="tip">평균 <b style="color:${rt.color}">${f1(avg)}%</b> · 세종 ${(sorted.findIndex(x=>x.region==='세종')+1)||'-'}위/${sorted.length}</span>`;
+    mkChart('m2c_'+rt.k,'bar',{labels:sorted.map((x,i)=>`${i+1}위 ${x.region}`),
+      datasets:[
+        {type:'line', label:'평균', data:sorted.map(()=>avg), borderColor:'#98A2B3', borderDash:[6,4], borderWidth:2,
+         pointRadius:0, datalabels:{display:false}},
+        {label:rt.name, data:sorted.map(x=>x[rt.k]),
+         backgroundColor:sorted.map(x=>x.region==='세종'?'#C9A227':rt.color), borderRadius:5,
+         datalabels:{anchor:'end',align:'top',formatter:v=>f1(v)+'%',color:'#333',font:{size:9,weight:'700'}}}
+      ]},
+      {onClick:(e,els,ch)=>{ const el=els.find(x=>x.datasetIndex===1); if(!el) return; metricDrill(sorted[el.index].region); },
+       scales:{y:{beginAtZero:true, ticks:{callback:v=>v+'%'}},x:{ticks:{font:{size:10}}}},
+       plugins:{legend:{display:false}}});
+  });
 }
 function metricDrill(region){
   const {rows, ranks} = m2Rank(m2Month);
