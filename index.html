@@ -143,6 +143,14 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:11px 22px;border-radius:99px;font-size:14px;font-weight:600;opacity:0;transition:.25s;z-index:950;pointer-events:none}
 #toast.show{opacity:1}
 #fbBanner{display:none;background:#FFF6DE;border:1px solid #EAD489;color:#6B5400;font-size:13px;padding:10px 16px;border-radius:10px;margin-bottom:14px;line-height:1.55}
+.my-card{background:linear-gradient(135deg,#FFFBEF,#FFF);border:2px solid var(--gold);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+.my-card .head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.my-card .head h3{font-size:17px;color:var(--navy)}
+.my-card .rankchips{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.my-card .chip{background:var(--navy);color:#fff;border-radius:99px;padding:5px 13px;font-size:13px;font-weight:800}
+.my-card .chip.gold{background:var(--gold);color:#3A2E00}
+.my-card .nums{display:flex;gap:18px;flex-wrap:wrap;font-size:13.5px;color:var(--sub)}
+.my-card .nums b{color:var(--ink);font-size:16px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
 .seg button{border:none;background:#fff;padding:8px 14px;font-size:13.5px;font-weight:600;color:var(--sub)}
 .seg button.active{background:var(--navy);color:#fff}
@@ -244,6 +252,7 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
       <select id="wTribeSel" onchange="renderWorship()"><option value="">전체 지파</option></select>
     </div>
     <div class="stat-grid" id="wStats"></div>
+    <div id="wMyCard"></div>
   </div>
   <div class="card">
     <h2>순위 <span class="tip">실질출석률 기준 · 표/막대 클릭 시 상세</span>
@@ -267,19 +276,27 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
 
 <!-- ═══ 4. 선교센터 ═══ -->
 <section id="sec-center">
-  <div class="stat-grid" id="cStats"></div>
   <div class="card">
-    <h2>선교센터 출석관리 <span class="tip">지역·기수별 재적/출석 입력</span>
-      <span style="margin-left:auto" class="admin-only"><button class="btn-sub" onclick="cAddRow()">+ 행 추가</button></span>
+    <h2>선교센터 출석관리 현황 <span class="tip">담당자가 선교센터 대시보드에서 수정하면 실시간 자동 반영</span>
+      <span style="margin-left:auto" class="row">
+        <select id="cMonthSel" onchange="renderCenter()"><option value="">전체 월</option></select>
+        <select id="cChurchSel" onchange="renderCenter()"><option value="">전체 교회</option></select>
+        <a class="btn-sub" href="https://dbswjd924-tech.github.io/sejong-center/" target="_blank" style="text-decoration:none">✏️ 원본 대시보드 열기</a>
+      </span>
     </h2>
-    <div class="tbl-wrap"><table id="cTbl">
-      <thead><tr><th>지역</th><th>기수/과정</th><th>재적</th><th>출석</th><th>출석률</th><th class="admin-only">삭제</th></tr></thead>
-      <tbody></tbody>
-    </table></div>
+    <div id="cSync" style="font-size:12.5px;color:var(--sub);margin-bottom:10px">연동 확인 중…</div>
+    <div class="stat-grid" id="cStats"></div>
   </div>
   <div class="card">
-    <h2>센터 출석률 그래프 <span class="tip">막대 클릭 시 상세 표시</span></h2>
+    <h2>교회별 출석률 <span class="tip">막대 클릭 → 해당 교회 기수별 상세</span></h2>
     <div class="chart-box"><canvas id="cChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h2>기수별 상세 <span class="tip">출석률 30% 미만 주황 · 20% 미만 빨강</span></h2>
+    <div class="tbl-wrap"><table id="cTbl">
+      <thead><tr><th>월</th><th>교회</th><th>센터</th><th>기수</th><th>수강신청</th><th>면접</th><th>센터등록</th><th>등록률</th><th>총원</th><th>전주출석</th><th>금주출석</th><th>출석률</th><th>전주대비</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
   </div>
 </section>
 
@@ -461,6 +478,7 @@ function initStore(){
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.database();
     dbRef = db.ref(DB_ROOT);
+    initCenterFeed();
     dbRef.on('value', snap=>{
       const v = snap.val();
       if(!v) return;
@@ -714,6 +732,8 @@ function metricDrill(region){
 // ═══ 3. 예배출석 ═══
 const DEPT_NAMES = {unspecified:'미분류',dept_child:'유년회',dept_student:'학생회',dept_youth:'청년회',dept_women:'부녀회',dept_men:'장년회',dept_advisory:'자문회',dept_pastor:'교역자',dept_elder:'장로회'};
 const TRIBE_ORDER = ["요한","베드로","부산야고보","안드레","다대오","빌립","시몬","바돌로매","마태","맛디아","서울야고보","도마"];
+const MY_CHURCH = "세종";   // 메인에 강조할 교회
+const MY_TRIBE  = "맛디아"; // 소속 지파
 
 async function wImport(inp){
   const file = inp.files[0]; inp.value='';
@@ -781,7 +801,7 @@ function renderWorship(selWeek){
     <div class="stat" style="border-top-color:#0FA57D"><div class="lbl">전체출석</div><div class="val">${sum.pr.toLocaleString()}<small>명 · ${f1(R.tr)}%</small></div></div>
     <div class="stat" style="border-top-color:#8B5CF6"><div class="lbl">실질출석률</div><div class="val">${f1(R.sr)}<small>%</small></div></div>
     <div class="stat" style="border-top-color:#94A3B8"><div class="lbl">온라인 / 대예</div><div class="val">${sum.ol.toLocaleString()}<small> / ${sum.su.toLocaleString()}명</small></div></div>`;
-  renderWRank(); drawWTrend();
+  renderMyCard(sel.value); renderWRank(); drawWTrend();
 }
 
 document.getElementById('wLevelSeg').addEventListener('click', e=>{
@@ -835,19 +855,63 @@ function renderWRank(){
 function wDrill(i){
   const g = (window._wRankList||[])[i]; if(!g) return;
   const sub = wLevel==='tribe' ? 'church' : wLevel==='church' ? 'dept' : 'tribe';
+  wShowDrill(g, sub);
+}
+function wMyDrill(i){
+  const g = (window._wTribeList||[])[i]; if(!g) return;
+  wShowDrill(g, 'dept');
+}
+function wShowDrill(g, sub){
   const subName = sub==='church'?'교회별':sub==='dept'?'부서별':'지파별';
   const list = wGroup(sub, g.rows);
   document.getElementById('ddTitle').textContent = `🙏 ${g.name} — ${subName} 상세 (${document.getElementById('wWeekSel').value})`;
   document.getElementById('ddBody').innerHTML = `<div class="tbl-wrap"><table>
-    <thead><tr><th>구분</th><th>재적</th><th>현장</th><th>온라인</th><th>대예</th><th>전체출석</th><th>현장률</th><th>전체률</th><th>실질률</th></tr></thead>
-    <tbody>${list.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${x.el.toLocaleString()}</td>
+    <thead><tr><th>순위</th><th>구분</th><th>재적</th><th>현장</th><th>온라인</th><th>대예</th><th>전체출석</th><th>현장률</th><th>전체률</th><th>실질률</th></tr></thead>
+    <tbody>${list.map((x,ri)=>`<tr class="${ri===0?'rank-1':''}"><td class="medal">${['🥇','🥈','🥉'][ri]||ri+1}</td><td><b>${esc(x.name)}</b></td><td>${x.el.toLocaleString()}</td>
       <td>${x.on.toLocaleString()}</td><td>${x.ol.toLocaleString()}</td><td>${x.su.toLocaleString()}</td><td>${x.pr.toLocaleString()}</td>
       <td class="rate-cell">${f1(x.or)}%</td><td class="rate-cell" style="color:#0FA57D">${f1(x.tr)}%</td>
       <td class="rate-cell" style="color:#8B5CF6"><b>${f1(x.sr)}%</b></td></tr>`).join('')}
-    <tr style="background:#F0F3F8;font-weight:800"><td>합계</td><td>${g.el.toLocaleString()}</td><td>${g.on.toLocaleString()}</td><td>${g.ol.toLocaleString()}</td><td>${g.su.toLocaleString()}</td><td>${g.pr.toLocaleString()}</td>
+    <tr style="background:#F0F3F8;font-weight:800"><td colspan="2">합계</td><td>${g.el.toLocaleString()}</td><td>${g.on.toLocaleString()}</td><td>${g.ol.toLocaleString()}</td><td>${g.su.toLocaleString()}</td><td>${g.pr.toLocaleString()}</td>
       <td class="rate-cell">${f1(g.or)}%</td><td class="rate-cell" style="color:#0FA57D">${f1(g.tr)}%</td><td class="rate-cell" style="color:#8B5CF6">${f1(g.sr)}%</td></tr>
     </tbody></table></div>`;
   document.getElementById('ddModal').classList.add('open');
+}
+
+function renderMyCard(week){
+  const box = document.getElementById('wMyCard');
+  const rows = ((S.worship[week]||{}).rows)||[];   // 전체 데이터 기준(지파 필터 무시)
+  if(!rows.length){ box.innerHTML=''; return; }
+  const all = wGroup('church', rows);
+  const gi = all.findIndex(x=>x.name===MY_CHURCH);
+  if(gi<0){ box.innerHTML=''; return; }
+  const me = all[gi];
+  const tribeList = all.filter(x=>((x.rows[0]||{}).tribe)===MY_TRIBE);
+  const ti = tribeList.findIndex(x=>x.name===MY_CHURCH);
+  window._wTribeList = tribeList;
+  box.innerHTML = `<div class="my-card">
+    <div class="head">
+      <h3>⭐ ${MY_CHURCH}교회 <small style="color:var(--sub);font-weight:600">(${MY_TRIBE}지파)</small></h3>
+      <div class="rankchips">
+        <span class="chip gold">전체 ${gi+1}위 / ${all.length}개 교회</span>
+        <span class="chip">${MY_TRIBE}지파 내 ${ti+1}위 / ${tribeList.length}개</span>
+      </div>
+    </div>
+    <div class="nums">
+      <span>실질출석률 <b style="color:#8B5CF6;font-size:22px">${f1(me.sr)}%</b></span>
+      <span>재적 <b>${me.el.toLocaleString()}</b>명</span>
+      <span>현장 <b style="color:#1976D2">${me.on.toLocaleString()}</b>명 (${f1(me.or)}%)</span>
+      <span>전체출석 <b style="color:#0FA57D">${me.pr.toLocaleString()}</b>명 (${f1(me.tr)}%)</span>
+    </div>
+    <div class="chart-box sm" style="height:220px;margin-top:12px"><canvas id="wMyChart"></canvas></div>
+  </div>`;
+  mkChart('wMyChart','bar',{labels:tribeList.map((x,i)=>`${i+1}위 ${x.name}`),
+    datasets:[{label:'실질출석률', data:tribeList.map(x=>x.sr),
+      backgroundColor:tribeList.map(x=>x.name===MY_CHURCH?'#C9A227':'#3E7CB1'), borderRadius:5}]},
+    {onClick:(e,els)=>{ if(!els.length) return; wMyDrill(els[0].index); },
+     scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}}},
+     plugins:{legend:{display:false},
+       title:{display:true,text:MY_TRIBE+'지파 교회별 실질출석률 (막대 클릭 → 부서별 상세)'},
+       datalabels:{anchor:'end',align:'top',formatter:v=>f1(v)+'%',color:'#333',font:{size:10,weight:'700'}}}});
 }
 
 function drawWTrend(){
@@ -869,49 +933,91 @@ function drawWTrend(){
      plugins:{datalabels:{align:'top',formatter:v=>f1(v),font:{size:10}}}});
 }
 
-// ═══ 4. 선교센터 ═══
-function cAddRow(){ if(!S.center.rows) S.center.rows=[]; S.center.rows.push({region:'',cohort:'',jj:0,att:0}); renderCenter(); markDirty(); }
-function cSet(i,k,v){
-  const r = S.center.rows[i];
-  r[k] = (k==='region'||k==='cohort') ? v.trim() : (+v||0);
-  renderCenter(); markDirty();
+// ═══ 4. 선교센터 (실시간 연동) ═══
+const CENTER_MONTHS = ["7월","8월","9월","10월","11월","12월","1월","2월","3월","4월","5월","6월"];
+const CENTER_CHURCHES = ["대전","서천","금산","보령","계룡","천안","청주","서산","공주","아산","세종","논산"];
+let centerRows = [];
+
+function initCenterFeed(){
+  const el = document.getElementById('cSync');
+  if(!db){ el.innerHTML = '⚠️ Firebase 연결 후 실시간 표시됩니다'; return; }
+  db.ref('dashboards/sejong-center').on('value', snap=>{
+    const v = snap.val();
+    centerRows = (v && v.rows) ? Object.values(v.rows) : [];
+    el.innerHTML = '☁️ <b>선교센터 대시보드와 실시간 연동됨</b> · 마지막 반영 ' + timeNow();
+    renderCenter();
+  }, err=>{ el.innerHTML = '⚠️ 연동 실패 — Firebase 규칙 확인 필요'; });
 }
-function cDel(i){ S.center.rows.splice(i,1); renderCenter(); markDirty(); }
+
+const cTotal = r => (+r.register||0) + (+r.move||0);
+const cRate  = r => pct(+r.currAtt||0, cTotal(r));
+
+function cFiltered(){
+  const m = document.getElementById('cMonthSel').value;
+  const c = document.getElementById('cChurchSel').value;
+  return centerRows.filter(r => (!m || r.month===m) && (!c || r.church===c));
+}
+
 function renderCenter(){
-  const rows = S.center.rows||[];
-  const ro = role!=='admin' ? 'disabled' : '';
-  document.querySelector('#cTbl tbody').innerHTML = rows.length ? rows.map((r,i)=>`<tr>
-    <td><input type="text" value="${esc(r.region)}" ${ro} placeholder="지역" onchange="cSet(${i},'region',this.value)"></td>
-    <td><input type="text" value="${esc(r.cohort)}" ${ro} placeholder="기수/과정" onchange="cSet(${i},'cohort',this.value)"></td>
-    <td><input type="number" min="0" value="${r.jj||0}" ${ro} onchange="cSet(${i},'jj',this.value)"></td>
-    <td><input type="number" min="0" value="${r.att||0}" ${ro} onchange="cSet(${i},'att',this.value)"></td>
-    <td class="rate-cell">${f1(pct(r.att,r.jj))}%</td>
-    <td class="admin-only"><button class="btn-danger" onclick="cDel(${i})">✕</button></td>
-  </tr>`).join('') : `<tr><td colspan="6" class="empty">행 추가 버튼으로 데이터를 입력하세요</td></tr>`;
+  // 필터 옵션 갱신
+  const ms = document.getElementById('cMonthSel'), cs = document.getElementById('cChurchSel');
+  const km = ms.value, kc = cs.value;
+  const months = CENTER_MONTHS.filter(m=>centerRows.some(r=>r.month===m));
+  const churches = CENTER_CHURCHES.filter(c=>centerRows.some(r=>r.church===c));
+  ms.innerHTML = '<option value="">전체 월</option>' + months.map(m=>`<option ${m===km?'selected':''}>${m}</option>`).join('');
+  cs.innerHTML = '<option value="">전체 교회</option>' + churches.map(c=>`<option ${c===kc?'selected':''}>${c}</option>`).join('');
 
-  const sum = rows.reduce((a,r)=>({jj:a.jj+(+r.jj||0),att:a.att+(+r.att||0)}),{jj:0,att:0});
+  const rows = cFiltered();
+  const sum = rows.reduce((a,r)=>({
+    apply:a.apply+(+r.apply||0), itv:a.itv+(+r.interview||0), reg:a.reg+(+r.register||0),
+    tot:a.tot+cTotal(r), prev:a.prev+(+r.prevAtt||0), curr:a.curr+(+r.currAtt||0)
+  }),{apply:0,itv:0,reg:0,tot:0,prev:0,curr:0});
   document.getElementById('cStats').innerHTML = `
-    <div class="stat"><div class="lbl">센터 재적</div><div class="val">${sum.jj.toLocaleString()}<small>명</small></div></div>
-    <div class="stat" style="border-top-color:#689F38"><div class="lbl">센터 출석</div><div class="val">${sum.att.toLocaleString()}<small>명</small></div></div>
-    <div class="stat" style="border-top-color:#C9A227"><div class="lbl">평균 출석률</div><div class="val">${f1(pct(sum.att,sum.jj))}<small>%</small></div></div>`;
+    <div class="stat"><div class="lbl">기수 수</div><div class="val">${rows.length}<small>개</small></div></div>
+    <div class="stat" style="border-top-color:#1976D2"><div class="lbl">센터등록</div><div class="val">${sum.reg.toLocaleString()}<small>명 · ${f1(pct(sum.reg,sum.itv))}%</small></div></div>
+    <div class="stat" style="border-top-color:#689F38"><div class="lbl">총원</div><div class="val">${sum.tot.toLocaleString()}<small>명</small></div></div>
+    <div class="stat" style="border-top-color:#C9A227"><div class="lbl">금주출석</div><div class="val">${sum.curr.toLocaleString()}<small>명 · ${f1(pct(sum.curr,sum.tot))}%</small></div></div>
+    <div class="stat" style="border-top-color:${sum.curr>=sum.prev?'#0FA57D':'#D32F2F'}"><div class="lbl">전주대비</div><div class="val">${sum.curr>=sum.prev?'▲':'▼'} ${Math.abs(sum.curr-sum.prev).toLocaleString()}<small>명</small></div></div>`;
 
-  // 지역 합산 차트
+  // 교회별 차트
   const g = {};
-  rows.forEach(r=>{ const k=r.region||'미지정'; if(!g[k])g[k]={jj:0,att:0,rows:[]}; g[k].jj+=(+r.jj||0); g[k].att+=(+r.att||0); g[k].rows.push(r); });
-  const list = Object.entries(g).map(([name,v])=>({name,...v,rate:pct(v.att,v.jj)})).sort((a,b)=>b.rate-a.rate);
+  rows.forEach(r=>{ const k=r.church||'미지정'; if(!g[k])g[k]={tot:0,curr:0,rows:[]};
+    g[k].tot+=cTotal(r); g[k].curr+=(+r.currAtt||0); g[k].rows.push(r); });
+  const list = Object.entries(g).map(([name,v])=>({name,...v,rate:pct(v.curr,v.tot)})).sort((a,b)=>b.rate-a.rate);
+  window._cRankList = list;
   mkChart('cChart','bar',{labels:list.map(x=>x.name),
-    datasets:[{label:'출석률', data:list.map(x=>x.rate), backgroundColor:'#3E7CB1', borderRadius:6}]},
-    {onClick:(e,els)=>{ if(!els.length) return; cDrill(list[els[0].index]); },
+    datasets:[{label:'출석률', data:list.map(x=>x.rate),
+      backgroundColor:list.map(x=>x.rate<20?'#D32F2F':x.rate<30?'#F59E0B':'#3E7CB1'), borderRadius:6}]},
+    {onClick:(e,els)=>{ if(!els.length) return; cDrill(els[0].index); },
      scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}}},
-     plugins:{legend:{display:false},datalabels:{anchor:'end',align:'top',formatter:v=>f1(v)+'%',color:'#333'}}});
+     plugins:{legend:{display:false},datalabels:{anchor:'end',align:'top',formatter:v=>f1(v)+'%',color:'#333',font:{weight:'700',size:10}}}});
+
+  // 상세 표 (읽기 전용)
+  const sorted = rows.slice().sort((a,b)=>
+    (CENTER_MONTHS.indexOf(a.month)-CENTER_MONTHS.indexOf(b.month)) ||
+    (CENTER_CHURCHES.indexOf(a.church)-CENTER_CHURCHES.indexOf(b.church)));
+  document.querySelector('#cTbl tbody').innerHTML = sorted.length ? sorted.map(r=>{
+    const rate = cRate(r), diff = (+r.currAtt||0)-(+r.prevAtt||0);
+    const rc = rate<20?'#D32F2F':rate<30?'#F59E0B':'#1976D2';
+    return `<tr>
+      <td>${esc(r.month)}</td><td><b>${esc(r.church)}</b></td><td>${esc(r.center)}</td><td>${esc(r.gigi)}</td>
+      <td>${(+r.apply||0)}</td><td>${(+r.interview||0)}</td><td>${(+r.register||0)}</td>
+      <td class="rate-cell">${f1(pct(+r.register||0,+r.interview||0))}%</td>
+      <td><b>${cTotal(r)}</b></td><td>${(+r.prevAtt||0)}</td><td><b>${(+r.currAtt||0)}</b></td>
+      <td class="rate-cell" style="color:${rc}">${f1(rate)}%</td>
+      <td style="color:${diff>=0?'#0FA57D':'#D32F2F'};font-weight:700">${diff>=0?'▲':'▼'} ${Math.abs(diff)}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="13" class="empty">표시할 데이터가 없습니다 — 선교센터 대시보드에서 입력하면 자동 표시됩니다</td></tr>`;
 }
-function cDrill(g){
-  document.getElementById('ddTitle').textContent = `🏫 ${g.name} 선교센터 상세`;
+function cDrill(i){
+  const g = (window._cRankList||[])[i]; if(!g) return;
+  document.getElementById('ddTitle').textContent = `🏫 ${g.name} — 기수별 상세`;
   document.getElementById('ddBody').innerHTML = `<div class="tbl-wrap"><table>
-    <thead><tr><th>기수/과정</th><th>재적</th><th>출석</th><th>출석률</th></tr></thead>
-    <tbody>${g.rows.map(r=>`<tr><td>${esc(r.cohort)}</td><td>${r.jj||0}</td><td>${r.att||0}</td>
-      <td class="rate-cell">${f1(pct(r.att,r.jj))}%</td></tr>`).join('')}
-    <tr style="background:#F0F3F8;font-weight:800"><td>합계</td><td>${g.jj}</td><td>${g.att}</td><td class="rate-cell">${f1(g.rate)}%</td></tr>
+    <thead><tr><th>월</th><th>센터</th><th>기수</th><th>총원</th><th>금주출석</th><th>출석률</th></tr></thead>
+    <tbody>${g.rows.map(r=>`<tr><td>${esc(r.month)}</td><td>${esc(r.center)}</td><td>${esc(r.gigi)}</td>
+      <td>${cTotal(r)}</td><td>${(+r.currAtt||0)}</td>
+      <td class="rate-cell">${f1(cRate(r))}%</td></tr>`).join('')}
+    <tr style="background:#F0F3F8;font-weight:800"><td colspan="3">합계</td><td>${g.tot}</td><td>${g.curr}</td><td class="rate-cell">${f1(g.rate)}%</td></tr>
     </tbody></table></div>`;
   document.getElementById('ddModal').classList.add('open');
 }
