@@ -531,14 +531,14 @@ function toast(msg){
 function init(){
   const now = new Date();
   calY = now.getFullYear(); calM = now.getMonth();
-  document.getElementById('mMonth').value = now.toISOString().slice(0,7);
+  document.getElementById('mMonth').value = ymd(now).slice(0,7);
   buildCatUI();
   initStore();
 }
 function lastSunday(){
   const d = new Date();
   d.setDate(d.getDate() - d.getDay());
-  return d.toISOString().slice(0,10);
+  return ymd(d);
 }
 
 // 탭
@@ -552,6 +552,7 @@ function renderAll(){
   renderCal(); renderMetrics(); renderWorship(); renderCenter(); renderMiss(); renderActs();
 }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const esc = s => String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const pct = (a,b) => b>0 ? (a/b*100) : 0;
@@ -575,12 +576,12 @@ function renderCal(){
   document.getElementById('calTitle').textContent = `${calY}년 ${calM+1}월`;
   const first = new Date(calY, calM, 1);
   const start = new Date(first); start.setDate(1 - first.getDay());
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = ymd(new Date());
   let html = ['일','월','화','수','목','금','토'].map(d=>`<div class="cal-dow">${d}</div>`).join('');
   const evs = Object.entries(S.schedule||{});
   for(let i=0;i<42;i++){
     const d = new Date(start); d.setDate(start.getDate()+i);
-    const ds = d.toISOString().slice(0,10);
+    const ds = ymd(d);
     const other = d.getMonth()!==calM;
     const dow = d.getDay();
     const dayEvs = evs.filter(([id,e]) => ds>=e.date && ds<=(e.endDate||e.date));
