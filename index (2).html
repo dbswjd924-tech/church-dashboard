@@ -219,18 +219,26 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
 
 <!-- ═══ 2. 지표현황 ═══ -->
 <section id="sec-metrics">
+  <div class="card">
+    <h2>기획부 지표 현황 <span class="tip">1~7월 확정 · 8월부터 당월 수치 입력 시 누적·%·순위 자동 계산</span></h2>
+    <div class="row" id="m2Tabs" style="gap:5px;flex-wrap:wrap"></div>
+  </div>
+  <div id="m2SejCard"></div>
   <div class="stat-grid" id="metricStats"></div>
   <div class="card">
-    <h2>지역별 지표 입력 <span class="tip">수치(%)를 입력하면 그래프가 자동 반영됩니다</span>
-      <span style="margin-left:auto" class="admin-only"><button class="btn-sub" onclick="addMetricRow()">+ 지역 추가</button></span>
-    </h2>
-    <div class="tbl-wrap"><table id="metricTbl">
-      <thead><tr><th>지역</th><th>센터등록률(%)</th><th>센터종강률(%)</th><th>입교율(%)</th><th>출석률(%)</th><th class="admin-only">삭제</th></tr></thead>
+    <h2>지역별 상세 <span class="tip">회색 = 자동계산 · 흰 칸 = 입력 가능(8월부터, 관리자)</span></h2>
+    <div class="tbl-wrap"><table id="m2Tbl">
+      <thead><tr>
+        <th>지역</th><th>전년말재적</th><th>현도재적</th>
+        <th>당월등록</th><th>누적등록</th><th>등록률</th>
+        <th>종강누적등록</th><th>당월종강</th><th>누적종강</th><th>종강률</th>
+        <th>당월입교</th><th>누적입교</th><th>입교율</th><th>출석률(%)</th>
+      </tr></thead>
       <tbody></tbody>
     </table></div>
   </div>
   <div class="card">
-    <h2>지표 그래프 <span class="tip">막대를 클릭하면 해당 지역 상세를 보여줍니다</span>
+    <h2>지표 그래프 <span class="tip">누적 기준 · 막대 클릭 → 지역 상세</span>
       <span style="margin-left:auto" class="seg" id="metricSeg"></span>
     </h2>
     <div class="chart-box"><canvas id="metricChart"></canvas></div>
@@ -417,13 +425,6 @@ const CATS = [
   {id:'etc',      name:'기타',   color:'#D7CCC8', dark:false},
 ];
 const catOf = id => CATS.find(c=>c.id===id) || CATS[CATS.length-1];
-const METRIC_KEYS = [
-  {k:'reg',  name:'센터등록률', color:'#1976D2'},
-  {k:'end',  name:'센터종강률', color:'#689F38'},
-  {k:'ipgyo',name:'입교율',     color:'#C9A227'},
-  {k:'att',  name:'출석률',     color:'#E5734A'},
-];
-const REGIONS_DEFAULT = ['대전','천안','청주','서산','공주','아산','세종','논산'];
 
 // ── 상태 ──
 let S = defaultState();
@@ -434,11 +435,9 @@ let actEditId = null, evEditId = null, evPickedCat = 'church';
 let charts = {};
 
 function defaultState(){
-  const rows = {};
-  REGIONS_DEFAULT.forEach(r => rows[r] = {reg:0,end:0,ipgyo:0,att:0});
   return {
     schedule: {},
-    metrics: {order: [...REGIONS_DEFAULT], rows},
+    metrics: {entries: {}},
     worship: {},          // { 'YYYY-MM-DD': {rows:[{jipa,church,dept,jj,tot,on,sil}]} }
     center:  {rows: []},  // [{region,cohort,jj,att}]
     missioners: {},       // { 'YYYY-MM': {photos:[b64]} }
@@ -484,7 +483,7 @@ function initStore(){
       if(!v) return;
       applyingRemote = true;
       S = Object.assign(defaultState(), v);
-      S.metrics = Object.assign({order:[...REGIONS_DEFAULT],rows:{}}, v.metrics||{});
+      S.metrics = Object.assign({entries:{}}, v.metrics||{});
       renderAll();
       setStatus('실시간 동기화됨 · ' + timeNow());
       applyingRemote = false;
@@ -638,11 +637,65 @@ function evDelete(){
   closeModal('evModal'); renderCal(); markDirty();
 }
 
-// ═══ 2. 지표현황 ═══
+// ═══ 2. 지표현황 (1~7월 확정 + 8월~ 자동 누적) ═══
+const M_REGIONS = ['대전','천안','청주','서산','공주','아산','세종','논산'];
+const M_PREV = {'대전':16937,'천안':3506,'청주':6475,'서산':923,'공주':745,'아산':943,'세종':693,'논산':413};
+const M_CUR  = {'대전':15148,'천안':3071,'청주':5924,'서산':785,'공주':639,'아산':776,'세종':561,'논산':359};
+// [당월등록,누적등록,종강당월등록,종강누적등록,당월종강,누적종강,당월입교,누적입교,출석률] — 1~7월 확정
+const M_SEED = {"0":{"대전":[276,276,618,618,272,272,163,163,0],"천안":[45,45,203,203,93,93,29,29,0],"청주":[103,103,208,208,99,99,61,61,0],"서산":[8,8,0,0,0,0,0,0,0],"공주":[6,6,14,14,3,3,0,0,0],"아산":[13,13,35,35,13,13,13,13,0],"세종":[16,16,28,28,6,6,6,6,0],"논산":[9,9,0,0,0,0,4,4,0]},"1":{"대전":[202,478,203,821,57,329,80,243,91.5],"천안":[45,90,31,234,7,100,33,62,94.7],"청주":[70,173,60,268,25,124,25,86,89.7],"서산":[33,41,35,35,16,16,16,16,89.6],"공주":[16,24,0,14,2,5,0,0,90.6],"아산":[16,29,12,47,5,16,7,20,92],"세종":[6,22,30,58,7,13,7,13,91.9],"논산":[4,13,9,9,4,4,4,8,92.9]},"2":{"대전":[375,853,162,983,51,380,54,297,91.9],"천안":[64,154,34,268,11,111,11,73,94.2],"청주":[41,214,83,351,35,159,35,121,90.5],"서산":[0,41,0,35,0,16,0,16,91.7],"공주":[0,24,0,14,0,3,3,7,92],"아산":[0,29,0,47,0,18,0,11,92.7],"세종":[10,32,0,58,0,13,2,15,92.6],"논산":[4,17,0,9,0,4,0,13,90.9]},"3":{"대전":[323,1176,153,1088,47,427,44,300,94.2],"천안":[46,200,27,296,9,120,9,82,95.2],"청주":[51,265,46,397,16,175,41,162,91.9],"서산":[17,58,0,35,0,16,0,16,93.4],"공주":[0,32,8,55,1,4,0,7,94.5],"아산":[21,50,8,80,1,19,0,11,94.5],"세종":[0,32,18,76,3,16,3,18,93.9],"논산":[46,33,8,17,4,11,4,13,92.9]},"4":{"대전":[247,1431,215,1351,79,506,79,420,0],"천안":[47,247,26,322,10,130,10,92,0],"청주":[94,359,43,417,14,189,14,176,0],"서산":[0,58,20,55,8,24,6,22,0],"공주":[0,32,0,55,0,4,0,7,0],"아산":[0,50,0,55,0,19,0,11,0],"세종":[16,48,0,76,16,16,18,18,0],"논산":[0,33,0,17,8,11,8,22,0]},"5":{"대전":[227,1650,125,1476,47,553,47,467,0],"천안":[46,293,20,340,8,138,9,101,0],"청주":[88,447,58,498,29,218,29,205,0],"서산":[24,82,0,55,0,24,0,22,0],"공주":[0,40,5,37,2,9,2,13,0],"아산":[22,72,23,78,8,27,7,28,0],"세종":[3,51,20,96,3,19,3,21,0],"논산":[0,33,0,19,0,8,0,8,0]},"6":{"대전":[227,1877,130,1606,46,599,46,513,0],"천안":[46,363,0,338,0,138,9,110,0],"청주":[88,535,57,555,28,246,0,205,0],"서산":[24,106,12,71,7,31,7,29,0],"공주":[22,62,0,37,0,9,0,13,0],"아산":[0,72,0,78,0,27,0,28,0],"세종":[17,68,0,96,0,19,0,21,0],"논산":[10,43,14,31,11,19,8,16,0]}};
+const M_FIXED = 6;  // 인덱스 6(7월)까지 확정
+const M2_RATES = [
+  {k:'regRate', name:'센터등록률', color:'#378ADD', f:d=>pct(d.reg_cum,d.cur_total)},
+  {k:'finRate', name:'센터종강률', color:'#1D9E75', f:d=>pct(d.fin_cum,d.fin_reg_cum)},
+  {k:'enrRate', name:'입교율',     color:'#BA7517', f:d=>pct(d.enroll_cum,d.prev_total)},
+  {k:'attRate', name:'출석률',     color:'#7F77DD', f:d=>d.attend||0},
+];
+let m2Month = Math.min(new Date().getMonth(), 11);   // 0=1월
+
+function m2Entry(m,r){
+  const e = ((S.metrics.entries||{})[m]||{})[r]||{};
+  return {reg:+e.reg||0, freg:+e.freg||0, fin:+e.fin||0, enr:+e.enr||0, att:+e.att||0, cur:e.cur!=null?+e.cur:null};
+}
+function m2Data(m, r){
+  const d = {prev_total:M_PREV[r], cur_total:M_CUR[r], reg_total:0,reg_cum:0,fin_reg_total:0,fin_reg_cum:0,fin_total:0,fin_cum:0,enroll_total:0,enroll_cum:0,attend:0};
+  if(m<=M_FIXED){
+    const raw = (M_SEED[m]||{})[r];
+    if(raw){ d.reg_total=raw[0];d.reg_cum=raw[1];d.fin_reg_total=raw[2];d.fin_reg_cum=raw[3];
+      d.fin_total=raw[4];d.fin_cum=raw[5];d.enroll_total=raw[6];d.enroll_cum=raw[7];d.attend=raw[8]; }
+    return d;
+  }
+  // 8월~: 7월 누적을 기반으로 입력값 자동 합산
+  const base = (M_SEED[M_FIXED]||{})[r] || [0,0,0,0,0,0,0,0,0];
+  d.reg_cum=base[1]; d.fin_reg_cum=base[3]; d.fin_cum=base[5]; d.enroll_cum=base[7];
+  for(let i=M_FIXED+1;i<=m;i++){
+    const e = m2Entry(i,r);
+    d.reg_cum+=e.reg; d.fin_reg_cum+=e.freg; d.fin_cum+=e.fin; d.enroll_cum+=e.enr;
+    if(e.cur!=null) d.cur_total=e.cur;
+    if(i===m){ d.reg_total=e.reg; d.fin_reg_total=e.freg; d.fin_total=e.fin; d.enroll_total=e.enr; d.attend=e.att; }
+  }
+  return d;
+}
+function m2Set(m,r,k,v){
+  if(!S.metrics.entries) S.metrics.entries={};
+  if(!S.metrics.entries[m]) S.metrics.entries[m]={};
+  if(!S.metrics.entries[m][r]) S.metrics.entries[m][r]={};
+  S.metrics.entries[m][r][k] = v===''?null:+v;
+  renderMetrics(); markDirty();
+}
+function m2Rank(m){
+  const rows = M_REGIONS.map(r=>{ const d=m2Data(m,r); const o={region:r,d};
+    M2_RATES.forEach(rt=>o[rt.k]=rt.f(d)); return o; });
+  const ranks = {};
+  M2_RATES.forEach(rt=>{
+    const sorted = rows.filter(x=>rt.k!=='attRate'||x[rt.k]>0).slice().sort((a,b)=>b[rt.k]-a[rt.k]);
+    ranks[rt.k] = {}; sorted.forEach((x,i)=>ranks[rt.k][x.region]=i+1);
+  });
+  return {rows, ranks};
+}
 function buildMetricSeg(){
   const seg = document.getElementById('metricSeg');
   seg.innerHTML = `<button data-m="all" class="active">전체</button>` +
-    METRIC_KEYS.map(m=>`<button data-m="${m.k}">${m.name}</button>`).join('');
+    M2_RATES.map(rt=>`<button data-m="${rt.k}">${rt.name}</button>`).join('');
   seg.addEventListener('click', e=>{
     const b = e.target.closest('button'); if(!b) return;
     metricSel = b.dataset.m;
@@ -651,82 +704,88 @@ function buildMetricSeg(){
   });
 }
 function renderMetrics(){
-  const {order, rows} = S.metrics;
-  // 요약: 전체 평균
-  const avg = {};
-  METRIC_KEYS.forEach(m=>{
-    const vals = order.map(r=>+(rows[r]?.[m.k]||0)).filter(v=>v>0);
-    avg[m.k] = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
-  });
-  document.getElementById('metricStats').innerHTML = METRIC_KEYS.map(m=>
-    `<div class="stat" style="border-top-color:${m.color}"><div class="lbl">${m.name} 평균</div>
-     <div class="val">${f1(avg[m.k])}<small>%</small></div></div>`).join('');
+  // 월 탭
+  document.getElementById('m2Tabs').innerHTML = Array.from({length:12},(_,i)=>
+    `<button class="btn-sub" style="${i===m2Month?'background:var(--navy);color:#fff;border-color:var(--navy)':''}${i<=M_FIXED?';font-weight:800':''}"
+      onclick="m2Month=${i};renderMetrics()">${i+1}월${i<=M_FIXED?' ✓':''}</button>`).join('');
 
-  const ro = role!=='admin' ? 'disabled' : '';
-  document.querySelector('#metricTbl tbody').innerHTML = order.map((r,i)=>`<tr>
-    <td><input type="text" value="${esc(r)}" ${ro} onchange="mtRename(${i},this.value)"></td>
-    ${METRIC_KEYS.map(m=>`<td><input type="number" min="0" max="100" step="0.1" value="${rows[r]?.[m.k]||0}" ${ro}
-      onchange="mtVal('${esc(r)}','${m.k}',this.value)"></td>`).join('')}
-    <td class="admin-only"><button class="btn-danger" onclick="mtDel(${i})">✕</button></td>
-  </tr>`).join('');
+  const {rows, ranks} = m2Rank(m2Month);
+
+  // ⭐ 세종 카드 (당월 기준 누적 순위)
+  const sj = rows.find(x=>x.region==='세종');
+  document.getElementById('m2SejCard').innerHTML = `<div class="my-card">
+    <div class="head"><h3>⭐ 세종 지표 <small style="color:var(--sub);font-weight:600">(${m2Month+1}월 기준 · 8개 지역 중 누적 순위)</small></h3></div>
+    <div class="stat-grid" style="margin-bottom:0">
+      ${M2_RATES.map(rt=>{
+        const rk = ranks[rt.k]['세종'];
+        return `<div class="stat" style="border-top-color:${rt.color}">
+          <div class="lbl">${rt.name} ${rk?`<span class="chip ${rk<=3?'gold':''}" style="float:right;padding:2px 9px;font-size:11px;background:${rk<=3?'var(--gold)':'var(--navy)'};color:${rk<=3?'#3A2E00':'#fff'};border-radius:99px;font-weight:800">${rk}위/8</span>`:''}</div>
+          <div class="val" style="color:${rt.color}">${f1(sj[rt.k])}<small>%</small></div>
+          <div class="lbl" style="margin-top:3px">${rt.k==='regRate'?`당월 +${sj.d.reg_total} · 누적 ${sj.d.reg_cum}`:rt.k==='finRate'?`당월 +${sj.d.fin_total} · 누적 ${sj.d.fin_cum}`:rt.k==='enrRate'?`당월 +${sj.d.enroll_total} · 누적 ${sj.d.enroll_cum}`:`현도재적 ${sj.d.cur_total.toLocaleString()}명`}</div>
+        </div>`;}).join('')}
+    </div>
+  </div>`;
+
+  // 전체 합산 KPI
+  const T = rows.reduce((a,x)=>({prev:a.prev+x.d.prev_total,cur:a.cur+x.d.cur_total,reg:a.reg+x.d.reg_cum,freg:a.freg+x.d.fin_reg_cum,fin:a.fin+x.d.fin_cum,enr:a.enr+x.d.enroll_cum}),{prev:0,cur:0,reg:0,freg:0,fin:0,enr:0});
+  const attAvg = (()=>{const v=rows.filter(x=>x.attRate>0);return v.length?v.reduce((s,x)=>s+x.attRate,0)/v.length:0;})();
+  document.getElementById('metricStats').innerHTML = `
+    <div class="stat" style="border-top-color:#378ADD"><div class="lbl">전체 센터등록률</div><div class="val">${f1(pct(T.reg,T.cur))}<small>% · ${T.reg.toLocaleString()}명</small></div></div>
+    <div class="stat" style="border-top-color:#1D9E75"><div class="lbl">전체 센터종강률</div><div class="val">${f1(pct(T.fin,T.freg))}<small>% · ${T.fin.toLocaleString()}명</small></div></div>
+    <div class="stat" style="border-top-color:#BA7517"><div class="lbl">전체 입교율</div><div class="val">${f1(pct(T.enr,T.prev))}<small>% · ${T.enr.toLocaleString()}명</small></div></div>
+    <div class="stat" style="border-top-color:#7F77DD"><div class="lbl">평균 출석률</div><div class="val">${f1(attAvg)}<small>%</small></div></div>`;
+
+  // 상세 표
+  const editable = m2Month>M_FIXED && role==='admin';
+  const gray = 'background:#F4F6FA;color:#556;font-weight:600';
+  document.querySelector('#m2Tbl tbody').innerHTML = rows.map(x=>{
+    const d=x.d, r=x.region, e=m2Entry(m2Month,r);
+    const inp=(k,val)=>editable
+      ? `<input type="number" min="0" step="${k==='att'?'0.1':'1'}" value="${val||''}" placeholder="0" onchange="m2Set(${m2Month},'${r}','${k}',this.value)">`
+      : `${k==='att'?f1(val||0):(val||0).toLocaleString()}`;
+    return `<tr ${r==='세종'?'style="background:#FFFBEF"':''}>
+      <td><b>${r==='세종'?'⭐ ':''}${r}</b></td>
+      <td style="${gray}">${d.prev_total.toLocaleString()}</td>
+      <td>${editable?`<input type="number" min="0" value="${e.cur!=null?e.cur:d.cur_total}" onchange="m2Set(${m2Month},'${r}','cur',this.value)">`:d.cur_total.toLocaleString()}</td>
+      <td>${inp('reg', m2Month>M_FIXED?e.reg:d.reg_total)}</td>
+      <td style="${gray}">${d.reg_cum.toLocaleString()}</td>
+      <td class="rate-cell" style="color:#378ADD">${f1(x.regRate)}%</td>
+      <td>${inp('freg', m2Month>M_FIXED?e.freg:d.fin_reg_total)}${m2Month<=M_FIXED?` <small style="color:#99a">(누적 ${d.fin_reg_cum.toLocaleString()})</small>`:''}</td>
+      <td>${inp('fin', m2Month>M_FIXED?e.fin:d.fin_total)}</td>
+      <td style="${gray}">${d.fin_cum.toLocaleString()}</td>
+      <td class="rate-cell" style="color:#1D9E75">${f1(x.finRate)}%</td>
+      <td>${inp('enr', m2Month>M_FIXED?e.enr:d.enroll_total)}</td>
+      <td style="${gray}">${d.enroll_cum.toLocaleString()}</td>
+      <td class="rate-cell" style="color:#BA7517">${f1(x.enrRate)}%</td>
+      <td>${inp('att', m2Month>M_FIXED?e.att:d.attend)}</td>
+    </tr>`;
+  }).join('');
   drawMetricChart();
 }
-function mtRename(i, v){
-  v = v.trim(); if(!v) return;
-  const old = S.metrics.order[i];
-  if(v===old) return;
-  S.metrics.rows[v] = S.metrics.rows[old]||{reg:0,end:0,ipgyo:0,att:0};
-  delete S.metrics.rows[old];
-  S.metrics.order[i] = v;
-  renderMetrics(); markDirty();
-}
-function mtVal(r, k, v){
-  if(!S.metrics.rows[r]) S.metrics.rows[r]={reg:0,end:0,ipgyo:0,att:0};
-  S.metrics.rows[r][k] = +v||0;
-  renderMetrics(); markDirty();
-}
-function addMetricRow(){
-  const name = prompt('추가할 지역명'); if(!name) return;
-  S.metrics.order.push(name.trim());
-  S.metrics.rows[name.trim()] = {reg:0,end:0,ipgyo:0,att:0};
-  renderMetrics(); markDirty();
-}
-function mtDel(i){
-  if(!confirm(`'${S.metrics.order[i]}' 지역을 삭제할까요?`)) return;
-  delete S.metrics.rows[S.metrics.order[i]];
-  S.metrics.order.splice(i,1);
-  renderMetrics(); markDirty();
-}
 function drawMetricChart(){
-  const {order, rows} = S.metrics;
-  const sel = metricSel==='all' ? METRIC_KEYS : METRIC_KEYS.filter(m=>m.k===metricSel);
-  const data = {
-    labels: order,
-    datasets: sel.map(m=>({label:m.name, data:order.map(r=>+(rows[r]?.[m.k]||0)),
-      backgroundColor:m.color, borderRadius:5}))
-  };
-  mkChart('metricChart','bar',data,{
-    onClick:(e,els,ch)=>{ if(!els.length) return; metricDrill(order[els[0].index]); },
-    scales:{y:{beginAtZero:true, max:100, ticks:{callback:v=>v+'%'}}},
-    plugins:{datalabels:{anchor:'end',align:'top',formatter:v=>v>0?f1(v)+'%':'',color:'#333'},
-      legend:{display:sel.length>1}}
-  });
+  const {rows} = m2Rank(m2Month);
+  const sel = metricSel==='all' ? M2_RATES : M2_RATES.filter(rt=>rt.k===metricSel);
+  mkChart('metricChart','bar',{labels:M_REGIONS,
+    datasets: sel.map(rt=>({label:rt.name, data:rows.map(x=>x[rt.k]), backgroundColor:rt.color, borderRadius:5}))},
+    {onClick:(e,els)=>{ if(!els.length) return; metricDrill(M_REGIONS[els[0].index]); },
+     scales:{y:{beginAtZero:true, ticks:{callback:v=>v+'%'}}},
+     plugins:{datalabels:{anchor:'end',align:'top',formatter:v=>v>0?f1(v):'',color:'#333',font:{size:9,weight:'700'}},
+       legend:{display:sel.length>1}}});
 }
 function metricDrill(region){
-  const r = S.metrics.rows[region]||{};
-  document.getElementById('ddTitle').textContent = `📍 ${region} 지표 상세`;
+  const {rows, ranks} = m2Rank(m2Month);
+  const x = rows.find(v=>v.region===region); if(!x) return;
+  const d = x.d;
+  document.getElementById('ddTitle').textContent = `📍 ${region} — ${m2Month+1}월 지표 상세`;
   document.getElementById('ddBody').innerHTML = `<div class="tbl-wrap"><table>
-    <thead><tr>${METRIC_KEYS.map(m=>`<th>${m.name}</th>`).join('')}</tr></thead>
-    <tbody><tr>${METRIC_KEYS.map(m=>`<td class="rate-cell" style="color:${m.color};font-size:18px">${f1(+(r[m.k]||0))}%</td>`).join('')}</tr></tbody>
-  </table></div>
-  <div class="chart-box sm" style="margin-top:14px"><canvas id="ddChart"></canvas></div>`;
+    <thead><tr><th>지표</th><th>당월</th><th>누적</th><th>비율</th><th>순위</th></tr></thead>
+    <tbody>
+      <tr><td><b>센터등록</b></td><td>+${d.reg_total}</td><td>${d.reg_cum.toLocaleString()}</td><td class="rate-cell" style="color:#378ADD">${f1(x.regRate)}%</td><td>${ranks.regRate[region]||'-'}위</td></tr>
+      <tr><td><b>센터종강</b></td><td>+${d.fin_total}</td><td>${d.fin_cum.toLocaleString()} / ${d.fin_reg_cum.toLocaleString()}</td><td class="rate-cell" style="color:#1D9E75">${f1(x.finRate)}%</td><td>${ranks.finRate[region]||'-'}위</td></tr>
+      <tr><td><b>입교</b></td><td>+${d.enroll_total}</td><td>${d.enroll_cum.toLocaleString()}</td><td class="rate-cell" style="color:#BA7517">${f1(x.enrRate)}%</td><td>${ranks.enrRate[region]||'-'}위</td></tr>
+      <tr><td><b>출석률</b></td><td colspan="2">현도재적 ${d.cur_total.toLocaleString()}명 · 전년말 ${d.prev_total.toLocaleString()}명</td><td class="rate-cell" style="color:#7F77DD">${f1(x.attRate)}%</td><td>${ranks.attRate[region]||'-'}위</td></tr>
+    </tbody></table></div>`;
   document.getElementById('ddModal').classList.add('open');
-  setTimeout(()=>{
-    mkChart('ddChart','bar',{labels:METRIC_KEYS.map(m=>m.name),
-      datasets:[{data:METRIC_KEYS.map(m=>+(r[m.k]||0)), backgroundColor:METRIC_KEYS.map(m=>m.color), borderRadius:6}]},
-      {scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}}},
-       plugins:{legend:{display:false},datalabels:{anchor:'end',align:'top',formatter:v=>f1(v)+'%'}}});
-  },60);
 }
 
 // ═══ 3. 예배출석 ═══
