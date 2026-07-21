@@ -231,12 +231,21 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
   <div class="card">
     <h2>지역별 상세 <span class="tip">관리자: 1~7월은 확정값 직접수정 가능 · 8월부터는 당월만 입력하면 누적 자동계산</span></h2>
     <div class="tbl-wrap"><table id="m2Tbl">
-      <thead><tr>
-        <th>지역</th><th>전년말재적</th><th>현도재적</th>
-        <th>당월등록</th><th>누적등록</th><th>등록률</th>
-        <th>종강누적등록</th><th>당월종강</th><th>누적종강</th><th>종강률</th>
-        <th>당월입교</th><th>누적입교</th><th>입교율</th><th>출석률(%)</th>
-      </tr></thead>
+      <thead>
+        <tr>
+          <th rowspan="2">지역</th>
+          <th rowspan="2">전년말<br>재적</th><th rowspan="2">전도<br>재적</th>
+          <th colspan="3" style="background:#DCEAFB;color:#1B4E82">① 센터 누적등록률</th>
+          <th colspan="4" style="background:#D6F0E5;color:#12704F">② 센터 누적종강률</th>
+          <th colspan="3" style="background:#F6E7CC;color:#8A5A12">③ 입교율</th>
+          <th rowspan="2" style="background:#E7E5FA;color:#4B3FA6">④ 출석률<br>(%)</th>
+        </tr>
+        <tr>
+          <th style="background:#EDF5FD">당월<br>등록</th><th style="background:#EDF5FD">누적<br>등록</th><th style="background:#EDF5FD">등록률<br>(÷전도재적)</th>
+          <th style="background:#E6F7EF">종강<br>누적등록</th><th style="background:#E6F7EF">당월<br>종강</th><th style="background:#E6F7EF">누적<br>종강</th><th style="background:#E6F7EF">종강률<br>(÷종강누적등록)</th>
+          <th style="background:#FBF2E0">당월<br>입교</th><th style="background:#FBF2E0">누적<br>입교</th><th style="background:#FBF2E0">입교율<br>(÷전년말재적)</th>
+        </tr>
+      </thead>
       <tbody></tbody>
     </table></div>
   </div>
@@ -671,13 +680,13 @@ const M_REGIONS = ['대전','천안','청주','서산','공주','아산','세종
 const M_PREV = {'대전':16937,'천안':3506,'청주':6475,'서산':923,'공주':745,'아산':943,'세종':693,'논산':413};
 const M_CUR  = {'대전':15148,'천안':3071,'청주':5924,'서산':785,'공주':639,'아산':776,'세종':561,'논산':359};
 // [당월등록,누적등록,종강당월등록,종강누적등록,당월종강,누적종강,당월입교,누적입교,출석률] — 1~7월 확정
-const M_SEED = {"0":{"대전":[276,276,618,618,272,272,163,163,0],"천안":[45,45,203,203,93,93,29,29,0],"청주":[103,103,208,208,99,99,61,61,0],"서산":[8,8,0,0,0,0,0,0,0],"공주":[6,6,14,14,3,3,0,0,0],"아산":[13,13,35,35,13,13,13,13,0],"세종":[16,16,28,28,6,6,6,6,0],"논산":[9,9,0,0,0,0,4,4,0]},"1":{"대전":[202,478,203,821,57,329,80,243,91.5],"천안":[45,90,31,234,7,100,33,62,94.7],"청주":[70,173,60,268,25,124,25,86,89.7],"서산":[33,41,35,35,16,16,16,16,89.6],"공주":[16,24,0,14,2,5,0,0,90.6],"아산":[16,29,12,47,5,16,7,20,92],"세종":[6,22,30,58,7,13,7,13,91.9],"논산":[4,13,9,9,4,4,4,8,92.9]},"2":{"대전":[375,853,162,983,51,380,54,297,91.9],"천안":[64,154,34,268,11,111,11,73,94.2],"청주":[41,214,83,351,35,159,35,121,90.5],"서산":[0,41,0,35,0,16,0,16,91.7],"공주":[0,24,0,14,0,3,3,7,92],"아산":[0,29,0,47,0,18,0,11,92.7],"세종":[10,32,0,58,0,13,2,15,92.6],"논산":[4,17,0,9,0,4,0,13,90.9]},"3":{"대전":[323,1176,153,1088,47,427,44,300,94.2],"천안":[46,200,27,296,9,120,9,82,95.2],"청주":[51,265,46,397,16,175,41,162,91.9],"서산":[17,58,0,35,0,16,0,16,93.4],"공주":[0,32,8,55,1,4,0,7,94.5],"아산":[21,50,8,80,1,19,0,11,94.5],"세종":[0,32,18,76,3,16,3,18,93.9],"논산":[46,33,8,17,4,11,4,13,92.9]},"4":{"대전":[247,1431,215,1351,79,506,79,420,0],"천안":[47,247,26,322,10,130,10,92,0],"청주":[94,359,43,417,14,189,14,176,0],"서산":[0,58,20,55,8,24,6,22,0],"공주":[0,32,0,55,0,4,0,7,0],"아산":[0,50,0,55,0,19,0,11,0],"세종":[16,48,0,76,16,16,18,18,0],"논산":[0,33,0,17,8,11,8,22,0]},"5":{"대전":[227,1650,125,1476,47,553,47,467,0],"천안":[46,293,20,340,8,138,9,101,0],"청주":[88,447,58,498,29,218,29,205,0],"서산":[24,82,0,55,0,24,0,22,0],"공주":[0,40,5,37,2,9,2,13,0],"아산":[22,72,23,78,8,27,7,28,0],"세종":[3,51,20,96,3,19,3,21,0],"논산":[0,33,0,19,0,8,0,8,0]},"6":{"대전":[227,1877,130,1606,46,599,46,513,0],"천안":[46,363,0,338,0,138,9,110,0],"청주":[88,535,57,555,28,246,0,205,0],"서산":[24,106,12,71,7,31,7,29,0],"공주":[22,62,0,37,0,9,0,13,0],"아산":[0,72,0,78,0,27,0,28,0],"세종":[17,68,0,96,0,19,0,21,0],"논산":[10,43,14,31,11,19,8,16,0]}};
+const M_SEED = {"6":{"대전":[127,1633,124,1600,130,566,33,480,96.5],"천안":[15,287,27,388,46,143,33,102,96.9],"청주":[35,384,57,555,46,243,26,248,96.0],"서산":[0,74,12,149,7,68,4,30,94.6],"공주":[10,46,0,227,6,52,10,46,97.2],"아산":[5,71,0,243,3,78,0,32,95.9],"세종":[8,52,17,92,6,18,2,20,96.4],"논산":[0,33,13,69,0,30,5,33,96.2]}};
 const M_FIXED = 6;  // 인덱스 6(7월)까지 확정
 const M2_RATES = [
-  {k:'regRate', name:'센터등록률', color:'#378ADD', f:d=>pct(d.reg_cum,d.cur_total)},
-  {k:'finRate', name:'센터종강률', color:'#1D9E75', f:d=>pct(d.fin_cum,d.fin_reg_cum)},
-  {k:'enrRate', name:'입교율',     color:'#BA7517', f:d=>pct(d.enroll_cum,d.prev_total)},
-  {k:'attRate', name:'출석률',     color:'#7F77DD', f:d=>d.attend||0},
+  {k:'regRate', name:'센터 누적등록률', color:'#378ADD', f:d=>pct(d.reg_cum,d.cur_total)},
+  {k:'finRate', name:'센터 누적종강률', color:'#1D9E75', f:d=>pct(d.fin_cum,d.fin_reg_cum)},
+  {k:'enrRate', name:'입교율',         color:'#BA7517', f:d=>pct(d.enroll_cum,d.prev_total)},
+  {k:'attRate', name:'출석률',         color:'#7F77DD', f:d=>d.attend||0},
 ];
 let m2Month = Math.min(new Date().getMonth(), 11);   // 0=1월
 
@@ -751,7 +760,7 @@ function renderMetrics(){
         return `<div class="stat" style="border-top-color:${rt.color}">
           <div class="lbl">${rt.name} ${rk?`<span class="chip ${rk<=3?'gold':''}" style="float:right;padding:2px 9px;font-size:11px;background:${rk<=3?'var(--gold)':'var(--navy)'};color:${rk<=3?'#3A2E00':'#fff'};border-radius:99px;font-weight:800">${rk}위/8</span>`:''}</div>
           <div class="val" style="color:${rt.color}">${f1(sj[rt.k])}<small>%</small></div>
-          <div class="lbl" style="margin-top:3px">${rt.k==='regRate'?`당월 +${sj.d.reg_total} · 누적 ${sj.d.reg_cum}`:rt.k==='finRate'?`당월 +${sj.d.fin_total} · 누적 ${sj.d.fin_cum}`:rt.k==='enrRate'?`당월 +${sj.d.enroll_total} · 누적 ${sj.d.enroll_cum}`:`현도재적 ${sj.d.cur_total.toLocaleString()}명`}</div>
+          <div class="lbl" style="margin-top:3px">${rt.k==='regRate'?`당월 +${sj.d.reg_total} · 누적 ${sj.d.reg_cum}`:rt.k==='finRate'?`당월 +${sj.d.fin_total} · 누적 ${sj.d.fin_cum}`:rt.k==='enrRate'?`당월 +${sj.d.enroll_total} · 누적 ${sj.d.enroll_cum}`:`전도재적 ${sj.d.cur_total.toLocaleString()}명`}</div>
         </div>`;}).join('')}
     </div>
   </div>`;
@@ -760,10 +769,10 @@ function renderMetrics(){
   const T = rows.reduce((a,x)=>({prev:a.prev+x.d.prev_total,cur:a.cur+x.d.cur_total,reg:a.reg+x.d.reg_cum,freg:a.freg+x.d.fin_reg_cum,fin:a.fin+x.d.fin_cum,enr:a.enr+x.d.enroll_cum}),{prev:0,cur:0,reg:0,freg:0,fin:0,enr:0});
   const attAvg = (()=>{const v=rows.filter(x=>x.attRate>0);return v.length?v.reduce((s,x)=>s+x.attRate,0)/v.length:0;})();
   document.getElementById('metricStats').innerHTML = `
-    <div class="stat" style="border-top-color:#378ADD"><div class="lbl">전체 센터등록률</div><div class="val">${f1(pct(T.reg,T.cur))}<small>% · ${T.reg.toLocaleString()}명</small></div></div>
-    <div class="stat" style="border-top-color:#1D9E75"><div class="lbl">전체 센터종강률</div><div class="val">${f1(pct(T.fin,T.freg))}<small>% · ${T.fin.toLocaleString()}명</small></div></div>
-    <div class="stat" style="border-top-color:#BA7517"><div class="lbl">전체 입교율</div><div class="val">${f1(pct(T.enr,T.prev))}<small>% · ${T.enr.toLocaleString()}명</small></div></div>
-    <div class="stat" style="border-top-color:#7F77DD"><div class="lbl">평균 출석률</div><div class="val">${f1(attAvg)}<small>%</small></div></div>`;
+    <div class="stat" style="border-top-color:#378ADD"><div class="lbl">① 센터 누적등록률<br><small style="font-weight:400">누적등록÷전도재적</small></div><div class="val">${f1(pct(T.reg,T.cur))}<small>% · ${T.reg.toLocaleString()}명</small></div></div>
+    <div class="stat" style="border-top-color:#1D9E75"><div class="lbl">② 센터 누적종강률<br><small style="font-weight:400">누적종강÷종강누적등록</small></div><div class="val">${f1(pct(T.fin,T.freg))}<small>% · ${T.fin.toLocaleString()}명</small></div></div>
+    <div class="stat" style="border-top-color:#BA7517"><div class="lbl">③ 입교율<br><small style="font-weight:400">누적입교÷전년말재적</small></div><div class="val">${f1(pct(T.enr,T.prev))}<small>% · ${T.enr.toLocaleString()}명</small></div></div>
+    <div class="stat" style="border-top-color:#7F77DD"><div class="lbl">④ 평균 출석률</div><div class="val">${f1(attAvg)}<small>%</small></div></div>`;
 
   // 상세 표
   const isFix = m2Month<=M_FIXED;
@@ -830,7 +839,7 @@ function metricDrill(region){
       <tr><td><b>센터등록</b></td><td>+${d.reg_total}</td><td>${d.reg_cum.toLocaleString()}</td><td class="rate-cell" style="color:#378ADD">${f1(x.regRate)}%</td><td>${ranks.regRate[region]||'-'}위</td></tr>
       <tr><td><b>센터종강</b></td><td>+${d.fin_total}</td><td>${d.fin_cum.toLocaleString()} / ${d.fin_reg_cum.toLocaleString()}</td><td class="rate-cell" style="color:#1D9E75">${f1(x.finRate)}%</td><td>${ranks.finRate[region]||'-'}위</td></tr>
       <tr><td><b>입교</b></td><td>+${d.enroll_total}</td><td>${d.enroll_cum.toLocaleString()}</td><td class="rate-cell" style="color:#BA7517">${f1(x.enrRate)}%</td><td>${ranks.enrRate[region]||'-'}위</td></tr>
-      <tr><td><b>출석률</b></td><td colspan="2">현도재적 ${d.cur_total.toLocaleString()}명 · 전년말 ${d.prev_total.toLocaleString()}명</td><td class="rate-cell" style="color:#7F77DD">${f1(x.attRate)}%</td><td>${ranks.attRate[region]||'-'}위</td></tr>
+      <tr><td><b>출석률</b></td><td colspan="2">전도재적 ${d.cur_total.toLocaleString()}명 · 전년말 ${d.prev_total.toLocaleString()}명</td><td class="rate-cell" style="color:#7F77DD">${f1(x.attRate)}%</td><td>${ranks.attRate[region]||'-'}위</td></tr>
     </tbody></table></div>`;
   document.getElementById('ddModal').classList.add('open');
 }
