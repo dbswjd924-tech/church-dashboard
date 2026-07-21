@@ -236,13 +236,13 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
           <th rowspan="2">지역</th>
           <th rowspan="2">전년말<br>재적</th><th rowspan="2">전도<br>재적</th>
           <th colspan="3" style="background:#DCEAFB;color:#1B4E82">① 센터 누적등록률</th>
-          <th colspan="4" style="background:#D6F0E5;color:#12704F">② 센터 누적종강률</th>
+          <th colspan="5" style="background:#D6F0E5;color:#12704F">② 센터 누적종강률 <small style="font-weight:400">(종강등록수는 등록률과 별개)</small></th>
           <th colspan="3" style="background:#F6E7CC;color:#8A5A12">③ 입교율</th>
           <th rowspan="2" style="background:#E7E5FA;color:#4B3FA6">④ 출석률<br>(%)</th>
         </tr>
         <tr>
           <th style="background:#EDF5FD">당월<br>등록</th><th style="background:#EDF5FD">누적<br>등록</th><th style="background:#EDF5FD">등록률<br>(÷전도재적)</th>
-          <th style="background:#E6F7EF">종강<br>누적등록</th><th style="background:#E6F7EF">당월<br>종강</th><th style="background:#E6F7EF">누적<br>종강</th><th style="background:#E6F7EF">종강률<br>(÷종강누적등록)</th>
+          <th style="background:#E6F7EF">종강등록<br>당월</th><th style="background:#E6F7EF">종강등록<br>누적</th><th style="background:#E6F7EF">당월<br>종강</th><th style="background:#E6F7EF">누적<br>종강</th><th style="background:#E6F7EF">종강률<br>(누적종강÷종강등록누적)</th>
           <th style="background:#FBF2E0">당월<br>입교</th><th style="background:#FBF2E0">누적<br>입교</th><th style="background:#FBF2E0">입교율<br>(÷전년말재적)</th>
         </tr>
       </thead>
@@ -342,10 +342,20 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
 <!-- ═══ 6. 활동사진 ═══ -->
 <section id="sec-activity">
   <div class="card">
-    <h2>활동사진 <span class="tip">행사 기록 + 사진 최대 3장</span>
+    <h2>활동사진 <span class="tip">행사 기록 + 사진 최대 3장 · 누적 보관</span>
       <span style="margin-left:auto" class="admin-only"><button class="btn-main" onclick="actOpen()">+ 활동 등록</button></span>
     </h2>
-    <div class="act-grid" id="actGrid"></div>
+    <div class="row" style="margin-bottom:8px">
+      <span class="seg" id="actViewSeg">
+        <button data-v="date" class="active">일자별</button>
+        <button data-v="dept">부서별</button>
+      </span>
+      <select id="actDeptFilter" onchange="renderActs()"><option value="">전체 부서</option></select>
+      <input type="month" id="actMonthFilter" onchange="renderActs()">
+      <button class="btn-sub" onclick="document.getElementById('actMonthFilter').value='';document.getElementById('actDeptFilter').value='';renderActs()">필터 해제</button>
+      <span class="tip" id="actCount" style="margin-left:auto"></span>
+    </div>
+    <div id="actContainer"></div>
   </div>
 </section>
 </main>
@@ -373,7 +383,10 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
 <div class="modal-bg" id="actModal">
   <div class="modal">
     <h3 id="actModalTitle">활동 등록</h3>
-    <div class="form-g"><label>행사명</label><input id="aName"></div>
+    <div class="row">
+      <div class="form-g" style="flex:2"><label>행사명</label><input id="aName"></div>
+      <div class="form-g" style="flex:1"><label>주관부서</label><input id="aDept" list="deptList" placeholder="예: 기획부"><datalist id="deptList"></datalist></div>
+    </div>
     <div class="row">
       <div class="form-g" style="flex:1"><label>일시</label><input type="datetime-local" id="aDT"></div>
       <div class="form-g" style="flex:1"><label>장소</label><input id="aPlace"></div>
@@ -470,7 +483,7 @@ let S = defaultState();
 let role = null;           // 'viewer' | 'admin'
 let db = null, dbRef = null, applyingRemote = false, saveTimer = null;
 let calY, calM, wLevel = 'tribe', metricSel = 'all';
-let actEditId = null, evEditId = null, evPickedCat = 'church';
+let actEditId = null, evEditId = null, evPickedCat = 'church', actView = 'date';
 let charts = {};
 
 function defaultState(){
@@ -569,6 +582,12 @@ function init(){
   const now = new Date();
   calY = now.getFullYear(); calM = now.getMonth();
   buildCatUI();
+  document.getElementById('actViewSeg').addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    actView=b.dataset.v;
+    document.querySelectorAll('#actViewSeg button').forEach(x=>x.classList.toggle('active',x===b));
+    renderActs();
+  });
   initStore();
 }
 function lastSunday(){
@@ -694,7 +713,7 @@ function m2Entry(m,r){
   const e = ((S.metrics.entries||{})[m]||{})[r]||{};
   return {reg:+e.reg||0, freg:+e.freg||0, fin:+e.fin||0, enr:+e.enr||0, att:+e.att||0, cur:e.cur!=null?+e.cur:null};
 }
-const M2_FKEYS = ['reg','regc','freg','fregc','fin','finc','enr','enrc','att'];
+const M2_FKEYS = ['reg','regc','fregt','fregc','fin','finc','enr','enrc','att'];
 function m2Data(m, r){
   const d = {prev_total:M_PREV[r], cur_total:M_CUR[r], reg_total:0,reg_cum:0,fin_reg_total:0,fin_reg_cum:0,fin_total:0,fin_cum:0,enroll_total:0,enroll_cum:0,attend:0};
   if(m<=M_FIXED){
@@ -794,7 +813,8 @@ function renderMetrics(){
       <td>${isFix ? inF('reg', d.reg_total) : inM('reg', e.reg)}</td>
       <td>${isFix ? inF('regc', d.reg_cum) : `<span style="${gray};display:block;padding:4px 2px;border-radius:6px">${d.reg_cum.toLocaleString()}</span>`}</td>
       <td class="rate-cell" style="color:#378ADD">${f1(x.regRate)}%</td>
-      <td>${isFix ? inF('fregc', d.fin_reg_cum) : inM('freg', e.freg)}</td>
+      <td>${isFix ? inF('fregt', d.fin_reg_total) : inM('freg', e.freg)}</td>
+      <td>${isFix ? inF('fregc', d.fin_reg_cum) : `<span style="${gray};display:block;padding:4px 2px;border-radius:6px">${d.fin_reg_cum.toLocaleString()}</span>`}</td>
       <td>${isFix ? inF('fin', d.fin_total) : inM('fin', e.fin)}</td>
       <td>${isFix ? inF('finc', d.fin_cum) : `<span style="${gray};display:block;padding:4px 2px;border-radius:6px">${d.fin_cum.toLocaleString()}</span>`}</td>
       <td class="rate-cell" style="color:#1D9E75">${f1(x.finRate)}%</td>
@@ -1179,6 +1199,19 @@ document.getElementById('rSeg').addEventListener('click', e=>{
   document.querySelectorAll('#rSeg button').forEach(x=>x.classList.toggle('active',x===b));
   renderMiss();
 });
+const R_ROLES = [
+  {key:'담임',      match:p=>p.includes('담임'),                       color:'#B8860B'},
+  {key:'교회총무',  match:p=>p.includes('교회총무'),                   color:'#8A6D0B'},
+  {key:'부장·회장', match:p=>(p.includes('부장')||p.includes('회장'))&&!p.includes('부구역'), color:'#1F6FB2'},
+  {key:'총무',      match:p=>p.includes('총무'),                       color:'#2E8B8B'},
+  {key:'지역장',    match:p=>p.includes('지역장'),                     color:'#3E9E5B'},
+  {key:'서무·서기', match:p=>p.includes('서무')||p.includes('서기'),   color:'#6A9A3E'},
+  {key:'기능과장',  match:p=>p.includes('기능과장')||p.includes('과장'), color:'#C99A2E'},
+  {key:'구역장',    match:p=>p.includes('구역장')&&!p.includes('부구역'), color:'#D2691E'},
+  {key:'부구역장',  match:p=>p.includes('부구역장'),                   color:'#B5651D'},
+  {key:'기타',      match:p=>true,                                     color:'#8B93A5'},
+];
+function rRoleOf(p){ p=p||''; return R_ROLES.find(x=>x.match(p)) || R_ROLES[R_ROLES.length-1]; }
 function rRank(p){
   p = p||'';
   if(!p) return 99;
@@ -1220,6 +1253,10 @@ function renderMiss(){
           return `<div class="stat"><div class="lbl">${name}</div><div class="val">${uniq(sub)}<small>명</small></div></div>`;}).join('')}
         <div class="stat" style="border-top-color:#8B5CF6"><div class="lbl">겸직 인원</div><div class="val">${dupCnt}<small>명</small></div></div>
       </div>
+      <div class="mg2" style="grid-template-columns:1fr 1fr">
+        <div class="card" style="margin-bottom:0"><h2>분류별 인원 <span class="tip">중복 제외</span></h2><div class="chart-box sm" style="height:230px"><canvas id="rChartCat"></canvas></div></div>
+        <div class="card" style="margin-bottom:0"><h2>직책별 인원 <span class="tip">전체 직책 분포</span></h2><div class="chart-box sm" style="height:230px"><canvas id="rChartRole"></canvas></div></div>
+      </div>
       <div class="mg2" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
         ${Object.entries(R_CATS).map(([c,name])=>{
           const groups = rGroups(c);
@@ -1229,6 +1266,21 @@ function renderMiss(){
             <tr style="background:#F0F3F8;font-weight:800"><td style="text-align:left">계</td><td>${list.filter(p=>p.c===c).length}명</td></tr>
             </tbody></table></div>`;}).join('')}
       </div>`;
+    setTimeout(()=>{
+      // 분류별 도넛
+      mkChart('rChartCat','doughnut',{labels:Object.values(R_CATS),
+        datasets:[{data:Object.keys(R_CATS).map(c=>uniq(list.filter(p=>p.c===c))),
+          backgroundColor:['#378ADD','#1D9E75','#BA7517']}]},
+        {plugins:{legend:{position:'right'},datalabels:{color:'#fff',font:{weight:'700',size:13},formatter:v=>v+'명'}}});
+      // 직책별 막대
+      const rc={}; R_ROLES.forEach(r=>rc[r.key]=0);
+      list.forEach(p=>{ rc[rRoleOf(p.p).key]++; });
+      const rk=R_ROLES.filter(r=>rc[r.key]>0);
+      mkChart('rChartRole','bar',{labels:rk.map(r=>r.key),
+        datasets:[{data:rk.map(r=>rc[r.key]), backgroundColor:rk.map(r=>r.color), borderRadius:5}]},
+        {indexAxis:'y',scales:{x:{beginAtZero:true,ticks:{precision:0}}},
+         plugins:{legend:{display:false},datalabels:{anchor:'end',align:'end',formatter:v=>v+'명',font:{weight:'700'}}}});
+    },60);
     return;
   }
 
@@ -1239,10 +1291,21 @@ function renderMiss(){
       <h2>${esc(g.name)} <span class="chip" style="background:var(--navy);color:#fff;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:800">${g.members.length}명</span>
         ${canEdit?`<span style="margin-left:auto"><button class="btn-sub" style="padding:3px 9px;font-size:12px" onclick="rAdd('${rView}','${esc(g.name)}')">＋</button></span>`:''}
       </h2>
-      <div style="display:flex;flex-wrap:wrap;gap:6px">
-        ${g.members.map(m=>`<span onclick="${canEdit?`rEdit(${m.i})`:''}" style="background:#F0F3F8;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:13px;${canEdit?'cursor:pointer':''}">
-          <b>${esc(m.n)}</b>${m.p?` <small style="color:var(--sub)">${esc(m.p)}</small>`:''}</span>`).join('')}
-      </div>
+      ${(()=>{
+        // 직책 그룹별로 묶어서 표시
+        const byRole = {};
+        g.members.forEach(m=>{ const rk=rRoleOf(m.p).key; (byRole[rk]=byRole[rk]||[]).push(m); });
+        return R_ROLES.filter(r=>byRole[r.key]).map(r=>`
+          <div style="margin-bottom:7px">
+            <div style="font-size:11.5px;font-weight:800;color:${r.color};margin-bottom:4px;display:flex;align-items:center;gap:5px">
+              <span style="width:8px;height:8px;border-radius:50%;background:${r.color};display:inline-block"></span>${r.key} <span style="color:var(--sub);font-weight:600">${byRole[r.key].length}</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px">
+              ${byRole[r.key].map(m=>`<span onclick="${canEdit?`rEdit(${m.i})`:''}" style="background:${r.color}14;border:1px solid ${r.color}55;border-radius:8px;padding:4px 9px;font-size:13px;${canEdit?'cursor:pointer':''}">
+                <b>${esc(m.n)}</b>${m.p&&m.p!==r.key?` <small style="color:var(--sub)">${esc(m.p)}</small>`:''}</span>`).join('')}
+            </div>
+          </div>`).join('');
+      })()}
     </div>`).join('') + `</div>` : '<div class="empty">데이터가 없습니다</div>';
 }
 function rAdd(cat, group){
@@ -1311,6 +1374,7 @@ function actOpen(id){
   const a = id ? S.activities[id] : null;
   document.getElementById('actModalTitle').textContent = id?'활동 수정':'활동 등록';
   document.getElementById('aName').value = a?a.name:'';
+  document.getElementById('aDept').value = a?(a.dept||''):'';
   document.getElementById('aDT').value = a?(a.dt||''):'';
   document.getElementById('aPlace').value = a?(a.place||''):'';
   document.getElementById('aTarget').value = a?(a.target||''):'';
@@ -1340,6 +1404,7 @@ function actSave(){
   const id = actEditId || uid();
   S.activities[id] = {
     name, dt:document.getElementById('aDT').value,
+    dept:document.getElementById('aDept').value.trim(),
     place:document.getElementById('aPlace').value.trim(),
     target:document.getElementById('aTarget').value.trim(),
     size:+document.getElementById('aSize').value||0,
@@ -1353,12 +1418,24 @@ function actDel(id){
   delete S.activities[id]; renderActs(); markDirty();
 }
 function renderActs(){
-  const list = Object.entries(S.activities||{}).sort((a,b)=>(b[1].dt||'').localeCompare(a[1].dt||''));
-  document.getElementById('actGrid').innerHTML = list.length ? list.map(([id,a])=>`
-    <div class="act-card">
+  const acts = Object.entries(S.activities||{}).map(([id,a])=>({id,...a}));
+  // 필터 옵션 채우기
+  const depts = [...new Set(acts.map(a=>a.dept).filter(Boolean))].sort((x,y)=>x.localeCompare(y,'ko'));
+  const df = document.getElementById('actDeptFilter'), kd = df.value;
+  df.innerHTML = '<option value="">전체 부서</option>' + depts.map(d=>`<option ${d===kd?'selected':''}>${esc(d)}</option>`).join('');
+  document.getElementById('deptList').innerHTML = depts.map(d=>`<option value="${esc(d)}">`).join('');
+
+  const fDept = df.value, fMonth = document.getElementById('actMonthFilter').value;
+  let filtered = acts.filter(a=>(!fDept||a.dept===fDept) && (!fMonth||(a.dt||'').startsWith(fMonth)));
+  document.getElementById('actCount').textContent = `총 ${filtered.length}건`;
+
+  const cont = document.getElementById('actContainer');
+  if(!filtered.length){ cont.innerHTML = '<div class="empty">해당 조건의 활동이 없습니다</div>'; return; }
+
+  const cardHtml = a => `<div class="act-card">
       ${a.photos?.length?`<div class="imgs">${a.photos.map(p=>`<img src="${p}" onclick="lightbox(this.src)">`).join('')}</div>`:''}
       <div class="body">
-        <h4>${esc(a.name)}</h4>
+        <h4>${a.dept?`<span style="background:var(--navy);color:#fff;border-radius:6px;padding:2px 8px;font-size:12px;margin-right:6px">${esc(a.dept)}</span>`:''}${esc(a.name)}</h4>
         <div class="meta">
           <b>일시</b> ${a.dt?a.dt.replace('T',' '):'-'}<br>
           <b>장소</b> ${esc(a.place)||'-'} &nbsp;·&nbsp; <b>대상</b> ${esc(a.target)||'-'}<br>
@@ -1367,10 +1444,31 @@ function renderActs(){
         ${a.content?`<div class="desc">${esc(a.content)}</div>`:''}
       </div>
       <div class="foot admin-only">
-        <button class="btn-sub" onclick="actOpen('${id}')">수정</button>
-        <button class="btn-danger" onclick="actDel('${id}')">삭제</button>
+        <button class="btn-sub" onclick="actOpen('${a.id}')">수정</button>
+        <button class="btn-danger" onclick="actDel('${a.id}')">삭제</button>
       </div>
-    </div>`).join('') : '<div class="empty" style="grid-column:1/-1">아직 등록된 활동이 없습니다</div>';
+    </div>`;
+
+  if(actView==='dept'){
+    const g={}; filtered.forEach(a=>{ const k=a.dept||'미지정'; (g[k]=g[k]||[]).push(a); });
+    const keys=Object.keys(g).sort((x,y)=>x==='미지정'?1:y==='미지정'?-1:x.localeCompare(y,'ko'));
+    cont.innerHTML = keys.map(k=>`
+      <div style="margin-bottom:22px">
+        <h3 style="font-size:15px;color:var(--navy);border-left:4px solid var(--gold);padding-left:9px;margin-bottom:11px">
+          ${esc(k)} <span style="color:var(--sub);font-size:13px;font-weight:600">${g[k].length}건</span></h3>
+        <div class="act-grid">${g[k].sort((a,b)=>(b.dt||'').localeCompare(a.dt||'')).map(cardHtml).join('')}</div>
+      </div>`).join('');
+  } else {
+    // 일자별: 연-월로 묶기
+    const g={}; filtered.forEach(a=>{ const k=(a.dt||'').slice(0,7)||'날짜미상'; (g[k]=g[k]||[]).push(a); });
+    const keys=Object.keys(g).sort((x,y)=>y.localeCompare(x));
+    cont.innerHTML = keys.map(k=>`
+      <div style="margin-bottom:22px">
+        <h3 style="font-size:15px;color:var(--navy);border-left:4px solid var(--navy);padding-left:9px;margin-bottom:11px">
+          ${k==='날짜미상'?k:k.replace('-','년 ')+'월'} <span style="color:var(--sub);font-size:13px;font-weight:600">${g[k].length}건</span></h3>
+        <div class="act-grid">${g[k].sort((a,b)=>(b.dt||'').localeCompare(a.dt||'')).map(cardHtml).join('')}</div>
+      </div>`).join('');
+  }
 }
 
 // ═══ 차트 헬퍼 ═══
