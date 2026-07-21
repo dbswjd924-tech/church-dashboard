@@ -204,7 +204,8 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
 <!-- ═══ 1. 교회일정 ═══ -->
 <section id="sec-schedule" class="active">
   <div class="card">
-    <h2>교회일정 <span class="tip">날짜를 누르면 일정을 추가할 수 있어요 (관리자)</span></h2>
+    <h2>교회일정 <span class="tip">날짜를 누르면 일정을 추가할 수 있어요 (관리자)</span>
+      <span style="margin-left:auto" class="admin-only"><button class="btn-sub" onclick="reloadSeedSchedule()">🔄 기본일정 다시 불러오기</button></span></h2>
     <div class="cal-head">
       <button onclick="calMove(-1)">‹</button>
       <h3 id="calTitle"></h3>
@@ -466,16 +467,13 @@ Chart.defaults.plugins.datalabels.font = {weight:'700', size:11};
 
 // ── 분류 색상 ──
 const CATS = [
-  {id:'chonghoe', name:'총회',   color:'#D32F2F', dark:true},
-  {id:'jipa',     name:'지파',   color:'#689F38', dark:true},
-  {id:'church',   name:'교회',   color:'#1976D2', dark:true},
-  {id:'jangnyeon',name:'장년부', color:'#F8BBD0', dark:false},
-  {id:'bunyeo',   name:'부녀부', color:'#FFCC80', dark:false},
-  {id:'cheongnyeon',name:'청년부',color:'#A5D6A7', dark:false},
-  {id:'haksaeng', name:'학생회', color:'#FFF176', dark:false},
-  {id:'yunyeon',  name:'유년회', color:'#81D4FA', dark:false},
-  {id:'etc',      name:'기타',   color:'#D7CCC8', dark:false},
+  {id:'chonghoe', name:'총회일정',    color:'#E23B3B', dark:true},
+  {id:'edu',      name:'교육·시험',   color:'#1F3A93', dark:true},
+  {id:'jeondo',   name:'전도일정',    color:'#2E7D46', dark:true},
+  {id:'dept',     name:'부서·회 행사', color:'#F2C230', dark:false},
+  {id:'season',   name:'24절기·기념일',color:'#8FD3E8', dark:false},
 ];
+const SCHEDULE_SEED = {"seed000":{"title":"청년회-'참교육' 방중 프로그램 (10:00, 모임방)","date":"2026-06-29","endDate":null,"category":"dept","memo":"","dept":""},"seed001":{"title":"청년회-'참교육' 방중 프로그램 (10:00, 모임방)","date":"2026-06-30","endDate":null,"category":"dept","memo":"","dept":""},"seed002":{"title":"청년회-'참교육' 방중 프로그램 (10:00, 모임방)","date":"2026-07-01","endDate":null,"category":"dept","memo":"","dept":""},"seed003":{"title":"청년회-'참교육' 방중 프로그램 (10:00, 모임방)","date":"2026-07-02","endDate":null,"category":"dept","memo":"","dept":""},"seed004":{"title":"봉교부-핑크보자기 (14:00, 조치원)","date":"2026-07-02","endDate":null,"category":"dept","memo":"","dept":""},"seed005":{"title":"청년회-'참교육' 방중 프로그램 (10:00, 모임방)","date":"2026-07-03","endDate":null,"category":"dept","memo":"","dept":""},"seed006":{"title":"열린센터 (10:30/20:00, 교육관)","date":"2026-07-03","endDate":null,"category":"jeondo","memo":"","dept":""},"seed007":{"title":"체육부-남자축구 (16:00)","date":"2026-07-05","endDate":null,"category":"dept","memo":"","dept":""},"seed008":{"title":"부녀회-부녀회 월례회 (14:00, 대성전)","date":"2026-07-05","endDate":null,"category":"dept","memo":"","dept":""},"seed009":{"title":"학생회-학생회동아리 (14:30, 모임방/도담센터)","date":"2026-07-05","endDate":null,"category":"dept","memo":"","dept":""},"seed010":{"title":"유년회-미술교실 (14:30, 모임방)","date":"2026-07-05","endDate":null,"category":"dept","memo":"","dept":""},"seed011":{"title":"축구교실 (15:00, 에스못실장)","date":"2026-07-05","endDate":null,"category":"dept","memo":"","dept":""},"seed012":{"title":"청년회-'참교육' 방중 프로그램 (10:00, 모임방)","date":"2026-07-06","endDate":null,"category":"dept","memo":"","dept":""},"seed013":{"title":"소서","date":"2026-07-07","endDate":null,"category":"season","memo":"","dept":""},"seed014":{"title":"청년회-'참교육' 방중 프로그램 (10:00, 모임방)","date":"2026-07-07","endDate":null,"category":"dept","memo":"","dept":""},"seed015":{"title":"교회 통합전도단 (09:00/19:30, 교육관)","date":"2026-07-07","endDate":null,"category":"jeondo","memo":"","dept":""},"seed016":{"title":"내무부 사명자 실무 교육 (9:30/21:30, 교육관)","date":"2026-07-07","endDate":null,"category":"edu","memo":"","dept":""},"seed017":{"title":"새신자 교육 (19:30, 교육관)","date":"2026-07-07","endDate":null,"category":"edu","memo":"","dept":""},"seed018":{"title":"정보보호의 날","date":"2026-07-08","endDate":null,"category":"season","memo":"","dept":""},"seed019":{"title":"새신자 교육 (19:30, 교육관)","date":"2026-07-08","endDate":null,"category":"edu","memo":"","dept":""},"seed020":{"title":"봉교부-백세만세 (12:00, 묘포5리 노인회관)","date":"2026-07-10","endDate":null,"category":"dept","memo":"","dept":""},"seed021":{"title":"열린센터 (10:30/20:00, 교육관)","date":"2026-07-10","endDate":null,"category":"jeondo","memo":"","dept":""},"seed022":{"title":"세계 인구의 날","date":"2026-07-11","endDate":null,"category":"season","memo":"","dept":""},"seed023":{"title":"세계 헌혈자의 날","date":"2026-07-12","endDate":null,"category":"season","memo":"","dept":""},"seed024":{"title":"청년회-월례회 (교육관)","date":"2026-07-12","endDate":null,"category":"dept","memo":"","dept":""},"seed025":{"title":"체육부-남자축구 (16:00)","date":"2026-07-12","endDate":null,"category":"dept","memo":"","dept":""},"seed026":{"title":"학생회-학생회동아리 (14:30, 모임방/도담센터)","date":"2026-07-12","endDate":null,"category":"dept","memo":"","dept":""},"seed027":{"title":"유년회-미술교실 (14:30, 모임방)","date":"2026-07-12","endDate":null,"category":"dept","memo":"","dept":""},"seed028":{"title":"축구교실 (15:00, 에스못실장)","date":"2026-07-12","endDate":null,"category":"dept","memo":"","dept":""},"seed029":{"title":"새신자 교육 (19:30, 교육관)","date":"2026-07-12","endDate":null,"category":"edu","memo":"","dept":""},"seed030":{"title":"인맞음 확인시험","date":"2026-07-12","endDate":null,"category":"edu","memo":"","dept":""},"seed031":{"title":"북한이탈주민의 날","date":"2026-07-14","endDate":null,"category":"season","memo":"","dept":""},"seed032":{"title":"제헌절","date":"2026-07-17","endDate":null,"category":"season","memo":"","dept":""},"seed033":{"title":"열린센터 (10:30/20:00, 교육관)","date":"2026-07-17","endDate":null,"category":"jeondo","memo":"","dept":""},"seed034":{"title":"청년회-대통령기록관 방문 (10:30, 대통령기록관)","date":"2026-07-19","endDate":null,"category":"dept","memo":"","dept":""},"seed035":{"title":"유년회-여름맞이 물놀이 (10:00)","date":"2026-07-19","endDate":null,"category":"dept","memo":"","dept":""},"seed036":{"title":"체육부-남자축구 (16:00)","date":"2026-07-19","endDate":null,"category":"dept","memo":"","dept":""},"seed037":{"title":"학생회-학생회동아리 (14:30, 모임방/도담센터)","date":"2026-07-19","endDate":null,"category":"dept","memo":"","dept":""},"seed038":{"title":"유년회-미술교실 (14:30, 모임방)","date":"2026-07-19","endDate":null,"category":"dept","memo":"","dept":""},"seed039":{"title":"축구교실 (15:00, 에스못실장)","date":"2026-07-19","endDate":null,"category":"dept","memo":"","dept":""},"seed040":{"title":"전도부-8월개강위한모임 (10:30/19:30, 복합)","date":"2026-07-21","endDate":null,"category":"jeondo","memo":"","dept":""},"seed041":{"title":"교회 통합전도단 (09:00/19:30, 교육관)","date":"2026-07-21","endDate":null,"category":"jeondo","memo":"","dept":""},"seed042":{"title":"내무부 사명자 실무 교육 (9:30/21:30, 교육관)","date":"2026-07-21","endDate":null,"category":"edu","memo":"","dept":""},"seed043":{"title":"새신자 교육 (19:30, 교육관)","date":"2026-07-21","endDate":null,"category":"edu","memo":"","dept":""},"seed044":{"title":"대서","date":"2026-07-23","endDate":null,"category":"season","memo":"","dept":""},"seed045":{"title":"전도부-8월개강위한모임 (10:30/19:30, 복합)","date":"2026-07-23","endDate":null,"category":"jeondo","memo":"","dept":""},"seed046":{"title":"새신자 교육 (19:30, 교육관)","date":"2026-07-23","endDate":null,"category":"edu","memo":"","dept":""},"seed047":{"title":"열린센터 (10:30/20:00, 교육관)","date":"2026-07-24","endDate":null,"category":"jeondo","memo":"","dept":""},"seed048":{"title":"중복","date":"2026-07-25","endDate":null,"category":"season","memo":"","dept":""},"seed049":{"title":"찬양부-찬양부 워크샵 (11:00, 세종 인근 캠핑장)","date":"2026-07-25","endDate":null,"category":"dept","memo":"","dept":""},"seed050":{"title":"학생회-학생의 날 (일례회) (11:00, 고운)","date":"2026-07-26","endDate":null,"category":"dept","memo":"","dept":""},"seed051":{"title":"체육부-남자축구 (16:00)","date":"2026-07-26","endDate":null,"category":"dept","memo":"","dept":""},"seed052":{"title":"학생회-하계수련회","date":"2026-07-26","endDate":null,"category":"dept","memo":"","dept":""},"seed053":{"title":"유년회-미술교실 (14:30, 모임방)","date":"2026-07-26","endDate":null,"category":"dept","memo":"","dept":""},"seed054":{"title":"축구교실 (15:00, 에스못실장)","date":"2026-07-26","endDate":null,"category":"dept","memo":"","dept":""},"seed055":{"title":"새신자 교육 (19:30, 교육관)","date":"2026-07-26","endDate":null,"category":"edu","memo":"","dept":""},"seed056":{"title":"인맞음 확인시험","date":"2026-07-26","endDate":null,"category":"edu","memo":"","dept":""},"seed057":{"title":"유엔군 참전의 날","date":"2026-07-27","endDate":null,"category":"season","memo":"","dept":""},"seed058":{"title":"학생회-하계수련회","date":"2026-07-27","endDate":null,"category":"dept","memo":"","dept":""},"seed059":{"title":"전도부-8월개강위한모임 (10:30/19:30, 복합)","date":"2026-07-28","endDate":null,"category":"jeondo","memo":"","dept":""},"seed060":{"title":"전도부-8월개강위한모임 (10:30/19:30, 복합)","date":"2026-07-30","endDate":null,"category":"jeondo","memo":"","dept":""},"seed061":{"title":"열린센터 (10:30/20:00, 교육관)","date":"2026-07-31","endDate":null,"category":"jeondo","memo":"","dept":""},"seed062":{"title":"[부녀회] 부녀회 사명자 전도단","date":"2026-07-01","endDate":null,"category":"jeondo","memo":"","dept":"부녀회"},"seed063":{"title":"[신학부] 선교센터 세종 165기 개강워크샵","date":"2026-07-01","endDate":null,"category":"jeondo","memo":"","dept":"신학부"},"seed064":{"title":"[봉사교통부] '핑크보자기' 신천지자원봉사활동","date":"2026-07-02","endDate":null,"category":"dept","memo":"","dept":"봉사교통부"},"seed065":{"title":"[총무부] 주간 점검 모임","date":"2026-07-03","endDate":null,"category":"edu","memo":"","dept":"총무부"},"seed066":{"title":"[교육부] 말씀정립교육","date":"2026-07-03","endDate":null,"category":"edu","memo":"","dept":"교육부"},"seed067":{"title":"[기획부] 새벽 기도회","date":"2026-07-05","endDate":null,"category":"jeondo","memo":"","dept":"기획부"},"seed068":{"title":"[교육부] 주일 전성도 교육","date":"2026-07-05","endDate":null,"category":"edu","memo":"","dept":"교육부"},"seed069":{"title":"[전도부] 전도부 6월 개강워크샵","date":"2026-07-05","endDate":null,"category":"jeondo","memo":"","dept":"전도부"},"seed070":{"title":"[체육부] 장년청년 남자축구","date":"2026-07-05","endDate":null,"category":"dept","memo":"","dept":"체육부"},"seed071":{"title":"[청년회] 대학지역 하계 방중(참교육)","date":"2026-07-06","endDate":null,"category":"edu","memo":"","dept":"청년회"},"seed072":{"title":"[청년회] 청년회 사명자 전도단","date":"2026-07-06","endDate":null,"category":"jeondo","memo":"","dept":"청년회"},"seed073":{"title":"[교육부] 초등 맥잡기 교육","date":"2026-07-07","endDate":null,"category":"edu","memo":"","dept":"교육부"},"seed074":{"title":"[부녀회] 뇌건강 부녀회 전도세미나","date":"2026-07-07","endDate":null,"category":"jeondo","memo":"","dept":"부녀회"},"seed075":{"title":"[부녀회] 부녀회 사명자 전도단","date":"2026-07-08","endDate":null,"category":"jeondo","memo":"","dept":"부녀회"},"seed076":{"title":"[교육부] 사명자 스피치 훈련 및 점검","date":"2026-07-08","endDate":null,"category":"edu","memo":"","dept":"교육부"},"seed077":{"title":"[총무부] 주간 점검 모임","date":"2026-07-10","endDate":null,"category":"edu","memo":"","dept":"총무부"},"seed078":{"title":"[교육부] 말씀정립교육","date":"2026-07-10","endDate":null,"category":"edu","memo":"","dept":"교육부"},"seed079":{"title":"[기획부] 새벽 기도회","date":"2026-07-12","endDate":null,"category":"jeondo","memo":"","dept":"기획부"},"seed080":{"title":"[교육부] 주일 전성도 교육","date":"2026-07-12","endDate":null,"category":"edu","memo":"","dept":"교육부"},"seed081":{"title":"[부녀회] 부녀회 월례회","date":"2026-07-12","endDate":null,"category":"dept","memo":"","dept":"부녀회"},"seed082":{"title":"[체육부] 장년청년 남자축구","date":"2026-07-12","endDate":null,"category":"dept","memo":"","dept":"체육부"},"seed083":{"title":"[청년회] 대학지역 하계 방중(참교육)","date":"2026-07-13","endDate":null,"category":"edu","memo":"","dept":"청년회"},"seed084":{"title":"[봉사교통부] '백세만세' 신자봉 활동","date":"2026-07-13","endDate":null,"category":"dept","memo":"","dept":"봉사교통부"},"seed085":{"title":"[청년회] 청년회 사명자 전도단","date":"2026-07-13","endDate":null,"category":"jeondo","memo":"","dept":"청년회"},"seed086":{"title":"[총무부] 주간 점검 모임","date":"2026-07-16","endDate":null,"category":"edu","memo":"","dept":"총무부"},"seed087":{"title":"[부녀회] 뇌건강 부녀회 전도세미나","date":"2026-07-16","endDate":null,"category":"jeondo","memo":"","dept":"부녀회"},"seed088":{"title":"[신학부] 입교예정자 성전방문","date":"2026-07-16","endDate":null,"category":"edu","memo":"","dept":"신학부"},"seed089":{"title":"[청년회] 청년회 사명자 워크샵","date":"2026-07-17","endDate":null,"category":"edu","memo":"","dept":"청년회"}};
 const catOf = id => CATS.find(c=>c.id===id) || CATS[CATS.length-1];
 
 // ── 상태 ──
@@ -483,12 +481,12 @@ let S = defaultState();
 let role = null;           // 'viewer' | 'admin'
 let db = null, dbRef = null, applyingRemote = false, saveTimer = null;
 let calY, calM, wLevel = 'tribe', metricSel = 'all';
-let actEditId = null, evEditId = null, evPickedCat = 'church', actView = 'date';
+let actEditId = null, evEditId = null, evPickedCat = 'dept', actView = 'date';
 let charts = {};
 
 function defaultState(){
   return {
-    schedule: {},
+    schedule: JSON.parse(JSON.stringify(SCHEDULE_SEED)),
     metrics: {entries: {}},
     worship: {},          // { 'YYYY-MM-DD': {rows:[{jipa,church,dept,jj,tot,on,sil}]} }
     center:  {rows: []},  // [{region,cohort,jj,att}]
@@ -675,7 +673,7 @@ function evOpen(id, ds){
   document.getElementById('evDate').value = e?e.date:(ds||'');
   document.getElementById('evEnd').value = e?(e.endDate||''):'';
   document.getElementById('evMemo').value = e?(e.memo||''):'';
-  pickCat(e?e.category:'church');
+  pickCat(e?e.category:'dept');
   document.getElementById('evDelBtn').style.display = (id&&role==='admin')?'inline-block':'none';
   document.getElementById('evModal').classList.add('open');
 }
@@ -687,6 +685,12 @@ function evSave(){
   S.schedule[id] = {title, date, endDate:document.getElementById('evEnd').value||null,
     category:evPickedCat, memo:document.getElementById('evMemo').value.trim()};
   closeModal('evModal'); renderCal(); markDirty();
+}
+function reloadSeedSchedule(){
+  if(!confirm('현재 교회일정을 모두 지우고 기본 일정(7월)으로 다시 채웁니다.\n계속할까요?')) return;
+  S.schedule = JSON.parse(JSON.stringify(SCHEDULE_SEED));
+  renderCal(); markDirty();
+  toast('✅ 기본 일정 '+Object.keys(SCHEDULE_SEED).length+'건 불러왔습니다');
 }
 function evDelete(){
   if(!confirm('이 일정을 삭제할까요?')) return;
