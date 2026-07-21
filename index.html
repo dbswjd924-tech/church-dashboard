@@ -1170,6 +1170,21 @@ document.getElementById('rSeg').addEventListener('click', e=>{
   document.querySelectorAll('#rSeg button').forEach(x=>x.classList.toggle('active',x===b));
   renderMiss();
 });
+function rRank(p){
+  p = p||'';
+  if(!p) return 99;
+  if(p.includes('교회담임')||p.includes('담임')) return 0;
+  if(p.includes('교회총무')) return 1;
+  if(p.includes('부구역장')) return 8;      // '구역장' 오인 방지: 먼저 검사
+  if(p.includes('구역장')) return 7;
+  if(p.includes('기능과장')) return 6;
+  if(p.includes('부장')||p.includes('회장')) return 2;
+  if(p.includes('총무')) return 3;
+  if(p.includes('지역장')) return 4;
+  if(p.includes('서무')||p.includes('서기')) return 5;
+  if(p.includes('과장')) return 6;
+  return 9;                                  // 부서원·재정회계·기타 등
+}
 function rGroups(cat){
   const g = {};
   rList().forEach((p,i)=>{ if(p.c!==cat) return; if(!g[p.g]) g[p.g]=[]; g[p.g].push({...p,i}); });
@@ -1178,7 +1193,7 @@ function rGroups(cat){
   if(cat==='hoe') keys.sort((a,b)=>ord(R_HOE_ORDER,a)-ord(R_HOE_ORDER,b) || a.localeCompare(b,'ko'));
   else if(cat==='dept') keys.sort((a,b)=>ord(R_DEPT_ORDER,a)-ord(R_DEPT_ORDER,b) || a.localeCompare(b,'ko'));
   else keys.sort((a,b)=>a.localeCompare(b,'ko'));
-  return keys.map(k=>({name:k, members:g[k]}));
+  return keys.map(k=>({name:k, members:g[k].slice().sort((a,b)=>rRank(a.p)-rRank(b.p) || (a.p||'').localeCompare(b.p||'','ko') || a.n.localeCompare(b.n,'ko'))}));
 }
 function renderMiss(){
   const list = rList();
