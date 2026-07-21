@@ -276,7 +276,7 @@ tr.rank-1 td:first-child{font-weight:800;color:#B8860B}
     <div id="wMyCard"></div>
   </div>
   <div class="card">
-    <h2>순위 <span class="tip">실질출석률 기준 · 표/막대 클릭 시 상세</span>
+    <h2>순위 <span class="tip">전체출석률 기준 순위 · 표·막대 클릭 시 상세</span>
       <span style="margin-left:auto" class="seg" id="wLevelSeg">
         <button data-lv="tribe" class="active">지파별</button>
         <button data-lv="church">교회별</button>
@@ -935,9 +935,9 @@ function renderWorship(selWeek){
   const sum = rows.reduce((a,r)=>({el:a.el+(+r.el||0),pr:a.pr+(+r.pr||0),on:a.on+(+r.on||0),ol:a.ol+(+r.ol||0),su:a.su+(+r.su||0),lt:a.lt+(+r.lt||0)}),{el:0,pr:0,on:0,ol:0,su:0,lt:0});
   const R = wRate(sum);
   document.getElementById('wStats').innerHTML = `
+    <div class="stat" style="border-top-color:#0FA57D;border-top-width:6px"><div class="lbl">전체출석률 (대표지표)</div><div class="val" style="color:#0FA57D">${f1(R.tr)}<small>% · ${sum.pr.toLocaleString()}명</small></div></div>
     <div class="stat"><div class="lbl">재적</div><div class="val">${sum.el.toLocaleString()}<small>명</small></div></div>
-    <div class="stat" style="border-top-color:#1976D2"><div class="lbl">현장출석</div><div class="val">${sum.on.toLocaleString()}<small>명 · ${f1(R.or)}%</small></div></div>
-    <div class="stat" style="border-top-color:#0FA57D"><div class="lbl">전체출석</div><div class="val">${sum.pr.toLocaleString()}<small>명 · ${f1(R.tr)}%</small></div></div>
+    <div class="stat" style="border-top-color:#1976D2"><div class="lbl">현장출석률</div><div class="val">${f1(R.or)}<small>% · ${sum.on.toLocaleString()}명</small></div></div>
     <div class="stat" style="border-top-color:#8B5CF6"><div class="lbl">실질출석률</div><div class="val">${f1(R.sr)}<small>%</small></div></div>
     <div class="stat" style="border-top-color:#94A3B8"><div class="lbl">온라인 / 대예</div><div class="val">${sum.ol.toLocaleString()}<small> / ${sum.su.toLocaleString()}명</small></div></div>`;
   renderMyCard(sel.value); renderWRank(); drawWTrend();
@@ -961,7 +961,7 @@ function wGroup(level, rows){
     x.el+=(+r.el||0);x.pr+=(+r.pr||0);x.on+=(+r.on||0);x.ol+=(+r.ol||0);x.su+=(+r.su||0);x.lt+=(+r.lt||0);
     x.rows.push(r);
   });
-  return Object.values(g).map(x=>Object.assign(x, wRate(x))).sort((a,b)=>b.sr-a.sr);
+  return Object.values(g).map(x=>Object.assign(x, wRate(x))).sort((a,b)=>b.tr-a.tr);
 }
 
 function renderWRank(){
@@ -979,16 +979,22 @@ function renderWRank(){
   window._wRankList = list;
 
   const chartList = list.length>24 ? list.slice(0,20) : list;
-  mkChart('wChart','bar',{labels:chartList.map(g=>g.name),
+
+  // 지파·교회·부서 공통: 3가지 출석률(전체/현장/실질) 비교 막대 + 순위번호
+  mkChart('wChart','bar',{labels:chartList.map((g,i)=>`${i+1}위 ${g.name}`),
     datasets:[
-      {label:'현장출석률', data:chartList.map(g=>g.or), backgroundColor:'#1976D2', borderRadius:4},
       {label:'전체출석률', data:chartList.map(g=>g.tr), backgroundColor:'#0FA57D', borderRadius:4},
+      {label:'현장출석률', data:chartList.map(g=>g.or), backgroundColor:'#1976D2', borderRadius:4},
       {label:'실질출석률', data:chartList.map(g=>g.sr), backgroundColor:'#8B5CF6', borderRadius:4},
     ]},
     {onClick:(e,els)=>{ if(!els.length) return; wDrill(els[0].index); },
      scales:{y:{beginAtZero:true,max:110,ticks:{callback:v=>v+'%'}},x:{ticks:{font:{size:10}}}},
-     plugins:{datalabels:{anchor:'end',align:'top',rotation:chartList.length>8?-90:0,formatter:v=>v>0?f1(v):'',color:'#333',font:{size:9,weight:'700'}},
-       title:{display:list.length>24, text:'상위 20개만 그래프에 표시 (전체는 위 표 참고)'}}});
+     plugins:{
+       legend:{position:'top'},
+       datalabels:{anchor:'end',align:'top',rotation:chartList.length>6?-90:0,formatter:v=>v>0?f1(v):'',color:'#333',font:{size:9,weight:'700'}},
+       tooltip:{callbacks:{title:(items)=>{ const g=chartList[items[0].dataIndex];
+         return `${items[0].label} (재적 ${g.el.toLocaleString()}명)`; }}},
+       title:{display:true, text:(wLevel==='tribe'?'지파별':wLevel==='church'?'교회별':'부서별')+' 출석률 비교 · 전체출석률 순위'+(list.length>24?' (상위20)':'')}}});
 }
 
 function wDrill(i){
@@ -1036,21 +1042,28 @@ function renderMyCard(week){
       </div>
     </div>
     <div class="nums">
-      <span>실질출석률 <b style="color:#8B5CF6;font-size:22px">${f1(me.sr)}%</b></span>
+      <span>전체출석률 <b style="color:#0FA57D;font-size:22px">${f1(me.tr)}%</b></span>
       <span>재적 <b>${me.el.toLocaleString()}</b>명</span>
+      <span>전체출석 <b style="color:#0FA57D">${me.pr.toLocaleString()}</b>명</span>
       <span>현장 <b style="color:#1976D2">${me.on.toLocaleString()}</b>명 (${f1(me.or)}%)</span>
-      <span>전체출석 <b style="color:#0FA57D">${me.pr.toLocaleString()}</b>명 (${f1(me.tr)}%)</span>
+      <span>실질출석률 <b style="color:#8B5CF6">${f1(me.sr)}%</b></span>
     </div>
-    <div class="chart-box sm" style="height:220px;margin-top:12px"><canvas id="wMyChart"></canvas></div>
+    <div class="chart-box sm" style="height:230px;margin-top:12px"><canvas id="wMyChart"></canvas></div>
   </div>`;
-  mkChart('wMyChart','bar',{labels:tribeList.map((x,i)=>`${i+1}위 ${x.name}`),
-    datasets:[{label:'실질출석률', data:tribeList.map(x=>x.sr),
-      backgroundColor:tribeList.map(x=>x.name===MY_CHURCH?'#C9A227':'#3E7CB1'), borderRadius:5}]},
+  mkChart('wMyChart','bar',{labels:tribeList.map((x,i)=>`${i+1}. ${x.name}`),
+    datasets:[
+      {label:'전체출석률', data:tribeList.map(x=>x.tr),
+        backgroundColor:tribeList.map(x=>x.name===MY_CHURCH?'#0A7D5C':'#0FA57D'), borderRadius:4},
+      {label:'현장출석률', data:tribeList.map(x=>x.or),
+        backgroundColor:tribeList.map(x=>x.name===MY_CHURCH?'#12508F':'#1976D2'), borderRadius:4},
+      {label:'실질출석률', data:tribeList.map(x=>x.sr),
+        backgroundColor:tribeList.map(x=>x.name===MY_CHURCH?'#6B44B5':'#8B5CF6'), borderRadius:4},
+    ]},
     {onClick:(e,els)=>{ if(!els.length) return; wMyDrill(els[0].index); },
-     scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}}},
-     plugins:{legend:{display:false},
-       title:{display:true,text:MY_TRIBE+'지파 교회별 실질출석률 (막대 클릭 → 부서별 상세)'},
-       datalabels:{anchor:'end',align:'top',formatter:v=>f1(v)+'%',color:'#333',font:{size:10,weight:'700'}}}});
+     scales:{y:{beginAtZero:true,max:110,ticks:{callback:v=>v+'%'}}},
+     plugins:{legend:{position:'top'},
+       title:{display:true,text:MY_TRIBE+'지파 교회별 출석률 비교 (전체출석률 순 · 막대 클릭 → 부서별)'},
+       datalabels:{display:false}}});
 }
 
 function drawWTrend(){
